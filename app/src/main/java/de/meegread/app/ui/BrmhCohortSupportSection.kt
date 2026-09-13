@@ -17,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import de.meegread.app.analysis.BrmhCohortSupportEngine
+import de.meegread.app.analysis.PsychiatricReferenceTaxonomy
 import de.meegread.app.model.MeegRecording
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -52,7 +53,7 @@ fun BrmhCohortSupportSection(recording: MeegRecording) {
             }
 
             Text(
-                "Nur Zuordnungshilfe zu BRMH-Kohorten, keine Diagnose. Die Referenzdiagnose muss klinisch/leitliniengerecht gestellt werden.",
+                "Nur Zuordnungshilfe zu BRMH-Kohorten, keine Diagnose. ICD-10-GM-Zuordnungen beziehen sich auf die vorhandenen Datensatzlabels; die Referenzdiagnose muss klinisch/leitliniengerecht gestellt werden.",
                 style = MaterialTheme.typography.bodySmall
             )
         }
@@ -66,10 +67,21 @@ private fun BrmhResult(result: BrmhCohortSupportEngine.BrmhCohortSupportResult) 
         Text(
             "${index + 1}. ${item.meta.displayLabel}: ${pct(item.score)} · BRMH n=${item.meta.count} · OVR-AUC ${f3(item.meta.cvOvrAuc)}"
         )
-        Text(
-            "Datensatz-Untergruppen: ${item.meta.specificLabels.joinToString { "${translateSpecific(it.label)} (${it.count})" }}",
-            style = MaterialTheme.typography.bodySmall
-        )
+        item.meta.specificLabels.forEach { specific ->
+            val icd = PsychiatricReferenceTaxonomy.supportForDatasetLabel(specific.label)
+            val code = icd?.icd10gm?.let { " · ICD-10-GM $it" }.orEmpty()
+            val suffix = when (icd?.specificity) {
+                PsychiatricReferenceTaxonomy.MappingSpecificity.EXACT_CATEGORY -> " · direkte Label-Zuordnung"
+                PsychiatricReferenceTaxonomy.MappingSpecificity.CODE_FAMILY -> " · Codefamilie, Unterform offen"
+                PsychiatricReferenceTaxonomy.MappingSpecificity.NO_UNIQUE_CODE -> " · kein eindeutiger ICD-Code aus BRMH-Label"
+                PsychiatricReferenceTaxonomy.MappingSpecificity.HEALTHY_CONTROL -> " · keine psychiatrische ICD-Diagnose"
+                null -> ""
+            }
+            Text(
+                "• ${translateSpecific(specific.label)} (${specific.count})$code$suffix",
+                style = MaterialTheme.typography.bodySmall
+            )
+        }
     }
 
     Text(
@@ -82,7 +94,7 @@ private fun BrmhResult(result: BrmhCohortSupportEngine.BrmhCohortSupportResult) 
         style = MaterialTheme.typography.bodySmall
     )
     Text(
-        "Modell ${result.modelVersion} · BRMH N=${BrmhCohortSupportEngine.DATASET_SIZE} · Datensatz-SHA256 ${BrmhCohortSupportEngine.DATASET_SHA256.take(12)}…",
+        "Modell ${result.modelVersion} · ${PsychiatricReferenceTaxonomy.VERSION} · BRMH N=${BrmhCohortSupportEngine.DATASET_SIZE} · Datensatz-SHA256 ${BrmhCohortSupportEngine.DATASET_SHA256.take(12)}…",
         style = MaterialTheme.typography.bodySmall
     )
 }
@@ -98,7 +110,7 @@ private fun translateSpecific(label: String): String = when (label) {
     "Obsessive compulsitve disorder" -> "Zwangsstörung"
     "Schizophrenia" -> "Schizophrenie"
     "Posttraumatic stress disorder" -> "Posttraumatische Belastungsstörung"
-    "Acute stress disorder" -> "Akute Belastungsstörung"
+    "Acute stress disorder" -> "Akute Belastungsreaktion"
     "Adjustment disorder" -> "Anpassungsstörung"
     else -> label
 }
