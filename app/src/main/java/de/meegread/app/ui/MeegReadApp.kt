@@ -90,6 +90,7 @@ fun MeegReadApp() {
                     AnalysisScreen(recording) { recording = it }
                     recording?.let {
                         ThermodynamicLoadSection(it)
+                        ResearchFriction19Section(it)
                         BrmhCohortSupportSection(it)
                     }
                 }
