@@ -17,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import de.meegread.app.analysis.BrmhCohortSupportEngine
+import de.meegread.app.analysis.PsychiatricEvaluationSupportEngine
 import de.meegread.app.analysis.PsychiatricReferenceTaxonomy
 import de.meegread.app.model.MeegRecording
 import kotlinx.coroutines.Dispatchers
@@ -62,6 +63,8 @@ fun BrmhCohortSupportSection(recording: MeegRecording) {
 
 @Composable
 private fun BrmhResult(result: BrmhCohortSupportEngine.BrmhCohortSupportResult) {
+    val evaluation = PsychiatricEvaluationSupportEngine.evaluate(result)
+
     Text("Top-3 Kohortenähnlichkeit", fontWeight = FontWeight.Bold)
     result.top3.forEachIndexed { index, item ->
         Text(
@@ -84,6 +87,20 @@ private fun BrmhResult(result: BrmhCohortSupportEngine.BrmhCohortSupportResult) 
         }
     }
 
+    Text("Auswertungsunsicherheit", fontWeight = FontWeight.Bold)
+    Text(
+        "Top-1 ${pct(evaluation.topCohortScore)} · Abstand Top-1/Top-2 ${pct(evaluation.top1Margin)} · normierte Entropie ${f3(evaluation.normalizedEntropy)}",
+        style = MaterialTheme.typography.bodySmall
+    )
+    Text(
+        "Bewertung: Forschungsrangfolge בלבד. ${evaluation.note}",
+        style = MaterialTheme.typography.bodySmall
+    )
+    Text(
+        "Nicht durch BRMH abgedeckte ICD-Kapitel: ${evaluation.unsupportedChapterRanges.joinToString(", ")}",
+        style = MaterialTheme.typography.bodySmall
+    )
+
     Text(
         "5-fach-CV im hochgeladenen BRMH-Datensatz: Balanced Accuracy ${pct(BrmhCohortSupportEngine.CV_BALANCED_ACCURACY)}, " +
             "Top-3 Accuracy ${pct(BrmhCohortSupportEngine.CV_TOP3_ACCURACY)}. Damit ist das Modell nicht für autonome psychiatrische Diagnosen geeignet.",
@@ -94,7 +111,7 @@ private fun BrmhResult(result: BrmhCohortSupportEngine.BrmhCohortSupportResult) 
         style = MaterialTheme.typography.bodySmall
     )
     Text(
-        "Modell ${result.modelVersion} · ${PsychiatricReferenceTaxonomy.VERSION} · BRMH N=${BrmhCohortSupportEngine.DATASET_SIZE} · Datensatz-SHA256 ${BrmhCohortSupportEngine.DATASET_SHA256.take(12)}…",
+        "Modelle ${result.modelVersion} · ${PsychiatricEvaluationSupportEngine.VERSION} · ${PsychiatricReferenceTaxonomy.VERSION} · BRMH N=${BrmhCohortSupportEngine.DATASET_SIZE} · Datensatz-SHA256 ${BrmhCohortSupportEngine.DATASET_SHA256.take(12)}…",
         style = MaterialTheme.typography.bodySmall
     )
 }
