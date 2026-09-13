@@ -10,7 +10,12 @@ data class ThermodynamicLoadPoint(
     val frictionRate: Double,
     val wRaw: Double,
     val wBounded: Double,
-    val omegaRatio: Double
+    val omegaRatio: Double,
+    val flowGate: Double = 0.0,
+    val loadDriveRate: Double = 0.0,
+    val flowReliefRate: Double = 0.0,
+    val recoveryRate: Double = 0.0,
+    val netLoadRate: Double = 0.0
 )
 
 data class ThermodynamicLoadAnalysis(
