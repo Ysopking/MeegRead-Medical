@@ -93,7 +93,7 @@ private fun BrmhResult(result: BrmhCohortSupportEngine.BrmhCohortSupportResult) 
         style = MaterialTheme.typography.bodySmall
     )
     Text(
-        "Bewertung: Forschungsrangfolge בלבד. ${evaluation.note}",
+        "Bewertung: nur Forschungsrangfolge. ${evaluation.note}",
         style = MaterialTheme.typography.bodySmall
     )
     Text(
