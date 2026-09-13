@@ -88,7 +88,10 @@ fun MeegReadApp() {
             when (section) {
                 Section.ANALYSIS -> Column {
                     AnalysisScreen(recording) { recording = it }
-                    recording?.let { ThermodynamicLoadSection(it) }
+                    recording?.let {
+                        ThermodynamicLoadSection(it)
+                        BrmhCohortSupportSection(it)
+                    }
                 }
 
                 Section.MAP -> BrainMapScreen(recording)
