@@ -28,32 +28,60 @@ import java.util.Locale
 fun ThermodynamicLoadSection(recording: MeegRecording) {
     var result by remember(recording) { mutableStateOf<ThermodynamicLoadAnalysis?>(null) }
     var computing by remember(recording) { mutableStateOf(true) }
-    LaunchedEffect(recording) { computing = true; result = withContext(Dispatchers.Default) { ThermodynamicLoadEngine.analyze(recording) }; computing = false }
+    LaunchedEffect(recording) {
+        computing = true
+        result = withContext(Dispatchers.Default) { ThermodynamicLoadEngine.analyze(recording) }
+        computing = false
+    }
     val missing = ThermodynamicLoadEngine.missingChannels(recording)
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
-            Text("Thermodynamische Last · MMSI-Forschung", fontWeight = FontWeight.Bold)
+            Text("Dynamische MMSI-Last · Forschung", fontWeight = FontWeight.Bold)
             when {
                 computing -> Text("Lasttrajektorie wird berechnet …", style = MaterialTheme.typography.bodySmall)
                 result != null -> ThermodynamicResult(result!!)
-                missing.isNotEmpty() -> { Text("Nicht berechenbar: ${missing.joinToString(", ")} fehlen."); Text("Benötigt werden AF7, AF8, TP9 und TP10.", style=MaterialTheme.typography.bodySmall) }
+                missing.isNotEmpty() -> {
+                    Text("Nicht berechenbar: ${missing.joinToString(", ")} fehlen.")
+                    Text("Benötigt werden AF7, AF8, TP9 und TP10.", style = MaterialTheme.typography.bodySmall)
+                }
                 else -> Text("Nicht berechenbar: Signalqualität oder Datenlänge unzureichend.")
             }
-            Text("Ωkrit = 5800 ist ein MMSI-Modellparameter. Der Wert ist keine etablierte klinische Normgrenze und ersetzt keine ärztliche Diagnose.", style = MaterialTheme.typography.bodySmall)
+            Text(
+                "Ωkrit = 5800 und τRecovery = ${f(ThermodynamicLoadEngine.RECOVERY_TAU_SECONDS)} s sind MMSI-Forschungsparameter. Sie sind keine etablierten klinischen Normgrenzen und ersetzen keine ärztliche Diagnose.",
+                style = MaterialTheme.typography.bodySmall
+            )
         }
     }
 }
 
 @Composable
 private fun ThermodynamicResult(result: ThermodynamicLoadAnalysis) {
-    val latest = result.points.last(); val remaining = result.omegaCrit - latest.wRaw
-    Text(if (result.omegaBreach) "MMSI-Modellgrenze erreicht/überschritten" else "Unter MMSI-Modellgrenze", fontWeight=FontWeight.Bold)
-    Text("Wraw ${f(latest.wRaw)} / ${f(result.omegaCrit)} · Ω-Auslastung ${f(latest.omegaRatio*100)} %")
+    val latest = result.points.last()
+    val remaining = result.omegaCrit - latest.wRaw
+    Text(
+        if (result.omegaBreach) "MMSI-Modellgrenze erreicht/überschritten" else "Unter MMSI-Modellgrenze",
+        fontWeight = FontWeight.Bold
+    )
+    Text("Wstored ${f(latest.wRaw)} / ${f(result.omegaCrit)} · Ω-Auslastung ${f(latest.omegaRatio * 100)} %")
     Text("Wbounded ${f(latest.wBounded)} · ΔΩ ${f(remaining)}")
     result.firstBreachTimeSeconds?.let { Text("Erste Modell-Grenzüberschreitung bei ${f(it)} s") }
-    if (result.points.size > 1) { Text("W(t)-Verlauf", style=MaterialTheme.typography.bodySmall, fontWeight=FontWeight.Bold); SignalChart(result.points.map { it.wRaw }, Modifier.fillMaxWidth()) }
-    Text("FAA μ ${f(result.meanFaa)} · ∇Ekog ${f(latest.gradE)} · ΔPproxy ${f(latest.pressureProxy)} · Eflow ${f(latest.eFlow)}", style=MaterialTheme.typography.bodySmall)
-    Text("Algorithmus: ${ThermodynamicLoadEngine.ALGORITHM_VERSION}", style=MaterialTheme.typography.bodySmall)
+    if (result.points.size > 1) {
+        Text("W(t)-Verlauf", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+        SignalChart(result.points.map { it.wRaw }, Modifier.fillMaxWidth())
+    }
+    Text(
+        "Drive ${f(latest.loadDriveRate)} · Flow-Relief ${f(latest.flowReliefRate)} · Recovery ${f(latest.recoveryRate)} · dW/dt ${f(latest.netLoadRate)}",
+        style = MaterialTheme.typography.bodySmall
+    )
+    Text(
+        "FAA μ ${f(result.meanFaa)} · ∇Ekog ${f(latest.gradE)} · ΔPproxy ${f(latest.pressureProxy)} · Eflow ${f(latest.eFlow)} · FlowGate ${f(latest.flowGate)}",
+        style = MaterialTheme.typography.bodySmall
+    )
+    Text(
+        "v1.2 behandelt W als gespeicherte, regenerierbare Last statt als rein monotones Integral; ältere v1.1-Werte sind nicht direkt vergleichbar.",
+        style = MaterialTheme.typography.bodySmall
+    )
+    Text("Algorithmus: ${ThermodynamicLoadEngine.ALGORITHM_VERSION}", style = MaterialTheme.typography.bodySmall)
 }
 
-private fun f(value: Double): String = String.format(Locale.US,"%.3f",value)
+private fun f(value: Double): String = String.format(Locale.US, "%.3f", value)
