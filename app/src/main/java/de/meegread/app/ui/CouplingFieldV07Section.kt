@@ -1,5 +1,8 @@
 package de.meegread.app.ui
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -11,26 +14,38 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import de.meegread.app.analysis.CouplingFieldV07Audit
 import de.meegread.app.analysis.CouplingFieldV07Engine
+import de.meegread.app.export.V07AuditExportManager
 import de.meegread.app.model.MeegRecording
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.Locale
 
 @Composable
 fun CouplingFieldV07Section(recording: MeegRecording) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     var computing by remember(recording) { mutableStateOf(true) }
     var result by remember(recording) { mutableStateOf<CouplingFieldV07Engine.Result?>(null) }
+    val auditLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri: Uri? ->
+        uri ?: return@rememberLauncherForActivityResult
+        scope.launch(Dispatchers.IO) { V07AuditExportManager.writeJson(context, uri, recording) }
+    }
 
     LaunchedEffect(recording) {
         computing = true
@@ -47,7 +62,16 @@ fun CouplingFieldV07Section(recording: MeegRecording) {
                     "Nicht berechenbar: mindestens zwei EEG/MEG-Kanäle mit ausreichender Datenlänge werden benötigt.",
                     style = MaterialTheme.typography.bodySmall
                 )
-                else -> CouplingFieldResult(result!!)
+                else -> {
+                    CouplingFieldResult(result!!)
+                    OutlinedButton(onClick = { auditLauncher.launch(v07AuditFileName(recording)) }) {
+                        Text("v0.7 Audit JSON exportieren")
+                    }
+                    Text(
+                        "Algorithmus-Fingerprint: ${CouplingFieldV07Audit.algorithmFingerprintSha256.take(16)}…",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
             }
         }
     }
@@ -110,6 +134,9 @@ private fun CouplingFieldResult(result: CouplingFieldV07Engine.Result) {
     }
     Text("Engine ${result.version}", style = MaterialTheme.typography.bodySmall)
 }
+
+private fun v07AuditFileName(recording: MeegRecording): String =
+    recording.name.substringBeforeLast('.').ifBlank { "recording" } + "_v07_audit.json"
 
 private fun f1(value: Double): String = String.format(Locale.US, "%.1f", value)
 private fun f2(value: Double): String = String.format(Locale.US, "%.2f", value)
