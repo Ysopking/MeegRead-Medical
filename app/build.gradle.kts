@@ -11,8 +11,8 @@ android {
         applicationId = "de.meegread.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 3
-        versionName = "1.1.0-medical"
+        versionCode = 4
+        versionName = "1.2.0-field-v07"
     }
 
     buildTypes {
