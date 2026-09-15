@@ -1,0 +1,82 @@
+{
+  "schema": "meegread.v07.clinical-group-discrimination-prereg.v1",
+  "validation_id": "v07-repod-schizophrenia-h01-h14-s01-s14",
+  "status": "FROZEN_BEFORE_CLINICAL_RESULT_COMPUTATION",
+  "purpose": "Test whether one already-established v0.7 multiscale EEG metric differs between healthy controls and a clinical schizophrenia cohort. This is a research group-discrimination test, not a diagnostic or biomarker claim.",
+  "source": {
+    "provider": "RepOD",
+    "dataset": "EEG in schizophrenia",
+    "version": "1.0",
+    "doi": "10.18150/repod.0107441",
+    "license": "CC0-1.0",
+    "healthy_subjects": ["h01","h02","h03","h04","h05","h06","h07","h08","h09","h10","h11","h12","h13","h14"],
+    "schizophrenia_subjects": ["s01","s02","s03","s04","s05","s06","s07","s08","s09","s10","s11","s12","s13","s14"],
+    "clinical_group": "paranoid schizophrenia",
+    "condition": "resting-state EEG, eyes closed",
+    "expected_sample_rate_hz": 250.0,
+    "expected_channel_count": 19,
+    "channel_order": ["Fp1","Fp2","F7","F3","Fz","F4","F8","T3","C3","Cz","C4","T4","T5","P3","Pz","P4","T6","O1","O2"],
+    "reference": "reference electrode between Fz and Cz",
+    "file_rule": "Use exactly h01.edf..h14.edf and s01.edf..s14.edf from RepOD dataset version 1.0. Each downloaded file must match the MD5 published by RepOD before analysis."
+  },
+  "frozen_operator": {
+    "base_commit": "d8299e3b773649cbc90c911f8acfb27592ca2690",
+    "engine_version": "coupling-field-v0.7-adapter-1.0",
+    "engine_blob_sha1": "be472fb4939d723dc4133f3652a8deabee470a04",
+    "signal_engine_blob_sha1": "e6f25721ad18be07666bf38de4921de6ee914a21",
+    "edf_parser_blob_sha1": "dfdb7520cb51cfa3e5088dac0ad773fb778719ae",
+    "python_oracle_blob_sha1": "2cd26cf925a8d85970fb9dabaeb3a3c8d4409679",
+    "algorithm_fingerprint_sha256": "489b4dcd4dbeb167bc7309b2483bbf7e48e19fb8356bcc9831f97d7ce4acaa8a",
+    "sample_rate_hz": 250.0,
+    "window_samples": 2048,
+    "filter_hz": [1.0,40.0],
+    "hilbert_kernel_radius": 31,
+    "nmi_bins": 8,
+    "var_order": 1,
+    "var_ridge": 0.001,
+    "gelfand_iterations": 80,
+    "coarse_grain": "deterministic greedy descending PLV*NMI",
+    "expected_scale_node_counts": [19,10,5,3,2,1],
+    "operational_space": "SENSOR_SPACE_PROXY"
+  },
+  "windowing": {
+    "windows_per_subject": 12,
+    "window_length_samples": 2048,
+    "start_index_rule": "For cleaned recording length N, window k=0..11 starts at floor(k*(N-2048)/11). This deterministically spans the complete recording and is fixed before group outcomes are inspected.",
+    "finite_policy": "Replace non-finite samples within a selected window with 0.0 before the unchanged operator runs.",
+    "subject_aggregation": "Compute the endpoint separately in each of the 12 windows; the subject score is the median of the 12 window endpoint values. No epoch/window is treated as an independent subject."
+  },
+  "primary_endpoint": {
+    "name": "median_multiscale_meanPLV_slope",
+    "per_window_metric": "OLS slope of meanPhaseLocking versus scale level over nonterminal scales with node counts [19,10,5,3,2]. The terminal n=1 scale is excluded because its pair metric is structurally degenerate.",
+    "subject_score": "median of the 12 per-window slopes",
+    "group_direction": "two-sided; no direction is assumed before outcomes",
+    "primary_group_statistic": "Mann-Whitney U on the 28 subject scores, exact two-sided p-value; effect size AUC = U/(14*14) reported with group direction preserved.",
+    "alpha": 0.05
+  },
+  "secondary_predeclared_endpoints": [
+    "subject median of per-window kappa slope across nonterminal scales",
+    "subject median of per-window log(couplingLossQ) slope across nonterminal scales",
+    "subject median of per-window chi_dyn slope across nonterminal scales",
+    "subject median of per-window VAR-stability slope across nonterminal scales"
+  ],
+  "secondary_group_discrimination": {
+    "feature": "primary subject score only; no feature selection and no multivariate model",
+    "validation": "leave-one-subject-out",
+    "classifier": "For each held-out subject, compute the healthy and schizophrenia medians from training subjects only and assign the held-out score to the class whose training median is closer; exact ties are assigned healthy.",
+    "metric": "balanced accuracy",
+    "label_permutation_test": "10000 deterministic balanced label permutations. For permutation r, rank subjects by SHA256(validation_id|classification-permutation|r|subject); assign the 14 lowest hashes schizophrenia and the remaining 14 healthy. Recompute the full leave-one-subject-out classifier. p=(1+count(null_balanced_accuracy>=observed))/(10001).",
+    "interpretation": "exploratory-supporting only; not a diagnostic accuracy claim"
+  },
+  "parity_gate": {
+    "comparison": "At least one preregistered window from every subject must pass full Kotlin versus independent-Python parity for every scale metric and every pair metric; all 12 windows are computed by the same frozen operator implementation.",
+    "floating_tolerance": "max(1e-9,1e-8*max(1,abs(expected)))"
+  },
+  "guardrails": [
+    "Group labels may not be used to choose channels, windows, scale levels, preprocessing parameters, endpoint direction or metric after results are observed.",
+    "No window-level train/test split is permitted; the unit of inference is the person.",
+    "No metric may replace the primary endpoint because it separates the groups better after inspection.",
+    "A significant group difference is evidence of group discrimination in this dataset, not proof of diagnosis, causality, disease specificity, source localization, universality or a physical law.",
+    "Any algorithmic or endpoint change requires a new preregistration version and an independent dataset for confirmatory use."
+  ]
+}
