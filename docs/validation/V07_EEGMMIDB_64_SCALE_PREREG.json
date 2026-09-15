@@ -1,0 +1,83 @@
+{
+  "schema": "meegread.v07.public-validation-prereg.v1",
+  "validation_id": "v07-eegmmidb-s001-r02-64ch-scale-ladder",
+  "status": "FROZEN_BEFORE_RESULT_COMPUTATION",
+  "purpose": "Evaluate the already frozen v0.7 operator on a substantially deeper sensor-space coarse-graining ladder without changing any scientific parameter after observing the result. This run is intended to remove the two-nonterminal-scale degeneracy of the 4-channel Muse validations, not to establish universality or clinical validity.",
+  "source": {
+    "provider": "PhysioNet",
+    "dataset": "EEG Motor Movement/Imagery Dataset",
+    "version": "1.0.0",
+    "doi": "10.13026/C28G6P",
+    "license": "Open Data Commons Attribution License v1.0",
+    "subject": "S001",
+    "run": "R02",
+    "condition": "one-minute baseline, eyes closed",
+    "path": "S001/S001R02.edf",
+    "file_url": "https://physionet.org/files/eegmmidb/1.0.0/S001/S001R02.edf",
+    "checksum_manifest_url": "https://physionet.org/files/eegmmidb/1.0.0/SHA256SUMS.txt",
+    "checksum_policy": "At runtime, extract the SHA-256 for exactly S001/S001R02.edf from the versioned PhysioNet SHA256SUMS.txt and require the downloaded EDF to match before parsing or analysis.",
+    "format": "EDF+",
+    "documented_eeg_channel_count": 64,
+    "documented_sample_rate_hz": 160.0,
+    "montage": "international 10-10 system as documented by PhysioNet"
+  },
+  "input_contract": {
+    "kotlin_parser": "app/src/main/java/de/meegread/app/data/EdfBdfParser.kt",
+    "channel_policy": "Use every non-annotation data channel parsed from S001R02.edf that the parser types as EEG. No result-dependent channel subset, ranking, rejection or relabeling is allowed.",
+    "expected_eeg_channel_count": 64,
+    "annotation_policy": "EDF+ annotation channel is excluded by the existing parser and never enters the operator.",
+    "resampling_policy": "No intentional resampling: all 64 documented EEG channels are expected at 160 Hz. Any parser-reported target sample rate other than exactly 160 Hz is a hard validation failure.",
+    "operational_space": "SENSOR_SPACE_PROXY"
+  },
+  "frozen_operator": {
+    "app_repository": "Ysopking/MeegRead-Medical",
+    "base_commit": "b2b4a45ef7e12f38e435cd4b356579dc8741fac0",
+    "engine_version": "coupling-field-v0.7-adapter-1.0",
+    "engine_blob_sha1": "be472fb4939d723dc4133f3652a8deabee470a04",
+    "signal_engine_blob_sha1": "e6f25721ad18be07666bf38de4921de6ee914a21",
+    "edf_parser_blob_sha1": "dfdb7520cb51cfa3e5088dac0ad773fb778719ae",
+    "algorithm_fingerprint_sha256": "489b4dcd4dbeb167bc7309b2483bbf7e48e19fb8356bcc9831f97d7ce4acaa8a",
+    "sample_rate_hz": 160.0,
+    "requested_window_samples": 2048,
+    "window_duration_seconds": 12.8,
+    "window_policy": "tail; floorPowerOfTwo(min(requestedWindowSamples, commonLength))",
+    "max_scales": 8,
+    "filter": "existing frozen v0.7 path; at 160 Hz this is 1-40 Hz",
+    "hilbert_kernel_radius": 31,
+    "nmi_bins": 8,
+    "var_order": 1,
+    "var_ridge": 0.001,
+    "gelfand_iterations": 80,
+    "coarse_grain": "existing deterministic greedy descending PLV*NMI bundle weight"
+  },
+  "scale_ladder_gate": {
+    "expected_node_counts": [64, 32, 16, 8, 4, 2, 1],
+    "nonterminal_scale_count": 6,
+    "reason": "Unlike a 4->2->1 recording, this ladder provides six nonterminal pairwise scales before the single-node terminal state, so any log-scale fit is no longer a two-point identity by construction.",
+    "no_pairwise_metric_expectation_at_terminal": true
+  },
+  "parity_gate": {
+    "python_oracle": "Reuse tools/validation/v07_reference.py unchanged for all numerical operator steps. Add a source-specific, independently authored EDF reader that performs only standards-based EDF decoding, physical scaling, annotation exclusion and channel delivery.",
+    "kotlin_path": "Parse the same checksum-verified EDF with the existing EdfBdfParser, require 64 EEG channels at 160 Hz, then call the unchanged CouplingFieldV07Engine.",
+    "comparison": "Compare every scale metric and every pair metric, including ordering and labels, at every emitted scale.",
+    "floating_tolerance": "max(1e-9, 1e-8 * max(1, abs(expected)))",
+    "required_invariants": [
+      "engine version unchanged",
+      "engine, signal-engine and EDF-parser Git blob identities unchanged",
+      "algorithm fingerprint unchanged",
+      "SENSOR_SPACE_PROXY",
+      "sample rate 160 Hz",
+      "analysis window 2048 samples",
+      "exactly 64 EEG source channels",
+      "scale node counts 64,32,16,8,4,2,1"
+    ]
+  },
+  "interpretation_guardrails": [
+    "No parameter, channel selection rule, filter, threshold, coarse-graining rule or tolerance may be changed in response to this run's numerical result.",
+    "A green Kotlin-vs-Python result validates reproducible implementation transport; it does not prove the physical correctness of the model.",
+    "A multi-scale pattern in one subject/run is evidence about this frozen operator on this recording only and is not a universality claim.",
+    "Q remains a normalized coupling-loss proxy, not physical power.",
+    "chi_dyn remains a ridge VAR(1) spectral-radius coordinate, not a calibrated L/C ratio.",
+    "This remains sensor-space and is not source localization, diagnosis, biomarker validation or causal inference."
+  ]
+}

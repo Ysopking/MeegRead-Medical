@@ -1,0 +1,132 @@
+name: v0.7 EEGMMIDB 64-Channel Scale Parity
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  eegmmidb-scale-parity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      APP_VALIDATION_BASE: b2b4a45ef7e12f38e435cd4b356579dc8741fac0
+      ENGINE_BLOB_SHA1: be472fb4939d723dc4133f3652a8deabee470a04
+      SIGNAL_ENGINE_BLOB_SHA1: e6f25721ad18be07666bf38de4921de6ee914a21
+      EDF_PARSER_BLOB_SHA1: dfdb7520cb51cfa3e5088dac0ad773fb778719ae
+      ALGORITHM_FINGERPRINT_SHA256: 489b4dcd4dbeb167bc7309b2483bbf7e48e19fb8356bcc9831f97d7ce4acaa8a
+      PYTHON_ORACLE_CORE_BLOB_SHA1: 2cd26cf925a8d85970fb9dabaeb3a3c8d4409679
+      EEGMMIDB_ADAPTER_BLOB_SHA1: 0a6430958da9c025928d63c1625422982268e6f7
+      PREREG_BLOB_SHA1: da931c657e2b39101d83506630ff87e6e8b210a5
+      PHYSIONET_BASE: https://physionet.org/files/eegmmidb/1.0.0
+      EEGMMIDB_SOURCE_PATH: S001/S001R02.edf
+      V07_EEGMMIDB_VALIDATION: 'true'
+      V07_EEGMMIDB_EDF: ${{ github.workspace }}/build/v07-eegmmidb/S001R02.edf
+      V07_EEGMMIDB_REFERENCE_DIR: ${{ github.workspace }}/build/v07-eegmmidb/reference
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Verify preregistration and all frozen implementation identities
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git hash-object docs/validation/V07_EEGMMIDB_64_SCALE_PREREG.json)" = "$PREREG_BLOB_SHA1"
+          test "$(git hash-object app/src/main/java/de/meegread/app/analysis/CouplingFieldV07Engine.kt)" = "$ENGINE_BLOB_SHA1"
+          test "$(git hash-object app/src/main/java/de/meegread/app/analysis/SignalAnalysisEngine.kt)" = "$SIGNAL_ENGINE_BLOB_SHA1"
+          test "$(git hash-object app/src/main/java/de/meegread/app/data/EdfBdfParser.kt)" = "$EDF_PARSER_BLOB_SHA1"
+          test "$(git hash-object tools/validation/v07_reference.py)" = "$PYTHON_ORACLE_CORE_BLOB_SHA1"
+          test "$(git hash-object tools/validation/v07_eegmmidb_reference.py)" = "$EEGMMIDB_ADAPTER_BLOB_SHA1"
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+
+      - name: Download and verify versioned PhysioNet EEGMMIDB baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$V07_EEGMMIDB_REFERENCE_DIR"
+          curl --fail --location --retry 3 --retry-delay 2 \
+            "$PHYSIONET_BASE/SHA256SUMS.txt" \
+            -o build/v07-eegmmidb/SHA256SUMS.txt
+          checksum_line="$(awk -v path="$EEGMMIDB_SOURCE_PATH" '$2 == path || $2 == "./" path { print; exit }' build/v07-eegmmidb/SHA256SUMS.txt)"
+          test -n "$checksum_line"
+          echo "Matched checksum manifest entry: $checksum_line"
+          expected_sha256="$(printf '%s\n' "$checksum_line" | awk '{print $1}')"
+          test "${#expected_sha256}" -eq 64
+          curl --fail --location --retry 3 --retry-delay 2 \
+            "$PHYSIONET_BASE/$EEGMMIDB_SOURCE_PATH" \
+            -o "$V07_EEGMMIDB_EDF"
+          actual_sha256="$(sha256sum "$V07_EEGMMIDB_EDF" | awk '{print $1}')"
+          echo "PhysioNet expected SHA-256: $expected_sha256"
+          echo "Downloaded actual SHA-256: $actual_sha256"
+          test "$actual_sha256" = "$expected_sha256"
+          printf '%s  %s\n' "$actual_sha256" "$EEGMMIDB_SOURCE_PATH" | tee "$V07_EEGMMIDB_REFERENCE_DIR/dataset.sha256"
+          echo "EEGMMIDB_DATASET_SHA256=$actual_sha256" >> "$GITHUB_ENV"
+
+      - name: Generate independent 64-channel Python reference without tuning
+        shell: bash
+        run: |
+          set -euo pipefail
+          python tools/validation/v07_eegmmidb_reference.py \
+            --input "$V07_EEGMMIDB_EDF" \
+            --out-dir "$V07_EEGMMIDB_REFERENCE_DIR" \
+            --expected-source-sha256 "$EEGMMIDB_DATASET_SHA256" \
+            --app-base-commit "$APP_VALIDATION_BASE" \
+            --engine-blob-sha1 "$ENGINE_BLOB_SHA1" \
+            --signal-engine-blob-sha1 "$SIGNAL_ENGINE_BLOB_SHA1" \
+            --edf-parser-blob-sha1 "$EDF_PARSER_BLOB_SHA1" \
+            --algorithm-fingerprint-sha256 "$ALGORITHM_FINGERPRINT_SHA256"
+          sha256sum tools/validation/v07_reference.py > "$V07_EEGMMIDB_REFERENCE_DIR/oracle-core.sha256"
+          sha256sum tools/validation/v07_eegmmidb_reference.py > "$V07_EEGMMIDB_REFERENCE_DIR/source-adapter.sha256"
+          sha256sum docs/validation/V07_EEGMMIDB_64_SCALE_PREREG.json > "$V07_EEGMMIDB_REFERENCE_DIR/preregistration.sha256"
+          echo '--- 64-channel frozen scale reference ---'
+          cat "$V07_EEGMMIDB_REFERENCE_DIR/scales.csv"
+          echo '--- pair reference summary ---'
+          wc -l "$V07_EEGMMIDB_REFERENCE_DIR/pairs.csv"
+          sha256sum "$V07_EEGMMIDB_REFERENCE_DIR/pairs.csv"
+          echo '--- reference manifest ---'
+          cat "$V07_EEGMMIDB_REFERENCE_DIR/manifest.json"
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+
+      - name: Install Android platform
+        run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Set up Gradle 9.6
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.6.0'
+
+      - name: Kotlin vs Python deep-scale parity
+        shell: bash
+        run: |
+          set -euo pipefail
+          gradle :app:testDebugUnitTest \
+            --tests 'de.meegread.app.analysis.CouplingFieldV07EegmmidbParityTest' \
+            --no-daemon --stacktrace
+
+      - name: Upload 64-channel reproducibility bundle
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v07-eegmmidb-64-scale-parity
+          path: |
+            build/v07-eegmmidb/reference/
+            app/build/test-results/testDebugUnitTest/
+          if-no-files-found: warn
