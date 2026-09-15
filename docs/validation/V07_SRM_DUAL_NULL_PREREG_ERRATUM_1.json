@@ -1,0 +1,27 @@
+{
+  "schema": "meegread.v07.independent-dataset-dual-null-prereg.erratum.v1",
+  "validation_id": "v07-srm-ds003775-t1-sub001-sub010-dual-null",
+  "status": "FROZEN_BEFORE_RESULT_COMPUTATION",
+  "parent_prereg_blob_sha1": "ace98ad6960771c08162cb9f45dad24fb93e0dfc",
+  "reason": "Before any SRM analysis result was computed, the first workflow stopped at the data-integrity gate. Direct unversioned S3 path retrieval returned the correct byte length but bytes that did not match the frozen OpenNeuro v1.2.1 git-annex MD5E identity. A diagnostic run then established that openneuro-py 2026.7.1, OpenNeuro's public client, retrieved the exact frozen annex object for sub-001 (expected MD5 a4aa13370458a970886967bd6dc6d672), whereas the direct S3 path returned MD5 ae9af95435bf92095ad6d09257388c38. No v0.7 metric, surrogate, endpoint or subject result had been computed at that point.",
+  "superseded_data_transport_clause": "Direct unversioned S3 path retrieval is not used for this validation because it did not reproduce the frozen snapshot annex identity.",
+  "corrected_data_transport_clause": {
+    "client": "openneuro-py",
+    "client_version": "2026.7.1",
+    "dataset": "ds003775",
+    "selection": "download only the preregistered subject EDF path plus client-required BIDS metadata",
+    "post_download_integrity": "The downloaded EDF must exactly match both the byte size and MD5 stored in V07_SRM_DUAL_NULL_DATASET_MANIFEST.json, whose values were extracted from the git-annex MD5E keys at OpenNeuro tag 1.2.1 / commit cb354b249827d17fa0575b2b42521ba25982c16b. Analysis is forbidden on mismatch."
+  },
+  "unchanged_scientific_design": [
+    "subjects sub-001 through sub-010",
+    "ses-t1 task-resteyesc",
+    "frozen v0.7 operator and 2048-sample tail",
+    "primary meanPhaseLocking OLS slope",
+    "49 circular-shift surrogates per subject",
+    "49 Fourier phase-randomized surrogates per subject",
+    "dual-null subject success definition",
+    "group binomial gate",
+    "Kotlin-Python observed parity tolerance",
+    "all interpretation guardrails"
+  ]
+}

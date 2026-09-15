@@ -1,0 +1,187 @@
+name: v0.7 SRM Independent Dataset Dual-Null Replication
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  subject-replication:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        subject: [sub-001, sub-002, sub-003, sub-004, sub-005, sub-006, sub-007, sub-008, sub-009, sub-010]
+    env:
+      APP_VALIDATION_BASE: d8299e3b773649cbc90c911f8acfb27592ca2690
+      ENGINE_BLOB_SHA1: be472fb4939d723dc4133f3652a8deabee470a04
+      SIGNAL_ENGINE_BLOB_SHA1: e6f25721ad18be07666bf38de4921de6ee914a21
+      EDF_PARSER_BLOB_SHA1: dfdb7520cb51cfa3e5088dac0ad773fb778719ae
+      PYTHON_ORACLE_BLOB_SHA1: 2cd26cf925a8d85970fb9dabaeb3a3c8d4409679
+      EEGMMIDB_HELPER_BLOB_SHA1: 9d1f55395c84eee8ddcbcd113ad2482435aaf0d1
+      PREREG_BLOB_SHA1: ace98ad6960771c08162cb9f45dad24fb93e0dfc
+      ERRATUM_BLOB_SHA1: f22e8451387381a41c5212a52b75e4e852b69871
+      DATASET_MANIFEST_BLOB_SHA1: ec96aaa791167af0c50563562d71d206786c6508
+      SRM_RUNNER_BLOB_SHA1: a677c79dd5f6dd2f8ab2caa9600076faf6307a4b
+      SRM_TEST_BLOB_SHA1: 69bc09d0810f2ddbddcf4cea5df6adef8a95e7be
+      OPENNEURO_COMMIT: cb354b249827d17fa0575b2b42521ba25982c16b
+      OPENNEURO_CLIENT_VERSION: 2026.7.1
+      V07_SRM_REPLICATION: 'true'
+      V07_SRM_SUBJECT: ${{ matrix.subject }}
+      V07_SRM_EDF: ${{ github.workspace }}/build/v07-srm/${{ matrix.subject }}.edf
+      V07_SRM_REFERENCE_DIR: ${{ github.workspace }}/build/v07-srm/${{ matrix.subject }}/reference
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Verify preregistration and frozen identities
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git hash-object docs/validation/V07_SRM_DUAL_NULL_PREREG.json)" = "$PREREG_BLOB_SHA1"
+          test "$(git hash-object docs/validation/V07_SRM_DUAL_NULL_PREREG_ERRATUM_1.json)" = "$ERRATUM_BLOB_SHA1"
+          test "$(git hash-object docs/validation/V07_SRM_DUAL_NULL_DATASET_MANIFEST.json)" = "$DATASET_MANIFEST_BLOB_SHA1"
+          test "$(git hash-object tools/validation/v07_srm_dual_null.py)" = "$SRM_RUNNER_BLOB_SHA1"
+          test "$(git hash-object app/src/test/java/de/meegread/app/analysis/CouplingFieldV07SrmReplicationParityTest.kt)" = "$SRM_TEST_BLOB_SHA1"
+          test "$(git hash-object app/src/main/java/de/meegread/app/analysis/CouplingFieldV07Engine.kt)" = "$ENGINE_BLOB_SHA1"
+          test "$(git hash-object app/src/main/java/de/meegread/app/analysis/SignalAnalysisEngine.kt)" = "$SIGNAL_ENGINE_BLOB_SHA1"
+          test "$(git hash-object app/src/main/java/de/meegread/app/data/EdfBdfParser.kt)" = "$EDF_PARSER_BLOB_SHA1"
+          test "$(git hash-object tools/validation/v07_reference.py)" = "$PYTHON_ORACLE_BLOB_SHA1"
+          test "$(git hash-object tools/validation/v07_eegmmidb_multisubject_null.py)" = "$EEGMMIDB_HELPER_BLOB_SHA1"
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+
+      - name: Install frozen validation dependencies
+        run: |
+          python -m pip install --disable-pip-version-check numpy==2.2.6 openneuro-py==${OPENNEURO_CLIENT_VERSION}
+
+      - name: Download exact frozen-identity EDF through OpenNeuro client
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$V07_SRM_REFERENCE_DIR"
+          mapfile -t META < <(python - "$V07_SRM_SUBJECT" <<'PY'
+          import json, sys
+          subject = sys.argv[1]
+          obj = json.load(open('docs/validation/V07_SRM_DUAL_NULL_DATASET_MANIFEST.json', encoding='utf-8'))
+          assert obj['dataset_git_commit'] == 'cb354b249827d17fa0575b2b42521ba25982c16b'
+          entry = obj['files'][subject]
+          print(entry['path'])
+          print(entry['md5'])
+          print(entry['bytes'])
+          PY
+          )
+          source_path="${META[0]}"
+          expected_md5="${META[1]}"
+          expected_size="${META[2]}"
+          download_root="${RUNNER_TEMP}/openneuro-${V07_SRM_SUBJECT}"
+          rm -rf "$download_root"
+          mkdir -p "$download_root"
+          openneuro-py download --dataset=ds003775 --target-dir="$download_root" --include="$source_path"
+          downloaded="$download_root/$source_path"
+          test -f "$downloaded"
+          actual_size="$(stat -c%s "$downloaded")"
+          actual_md5="$(md5sum "$downloaded" | awk '{print $1}')"
+          test "$actual_size" = "$expected_size"
+          test "$actual_md5" = "$expected_md5"
+          cp "$downloaded" "$V07_SRM_EDF"
+          echo "SRM_EXPECTED_MD5=$expected_md5" >> "$GITHUB_ENV"
+          echo "SRM_EXPECTED_SIZE=$expected_size" >> "$GITHUB_ENV"
+          echo "SRM_DATASET_SHA256=$(sha256sum "$V07_SRM_EDF" | awk '{print $1}')" >> "$GITHUB_ENV"
+
+      - name: Generate observed Python reference and both frozen nulls
+        shell: bash
+        run: |
+          set -euo pipefail
+          PYTHONPATH=tools/validation python tools/validation/v07_srm_dual_null.py subject \
+            --input "$V07_SRM_EDF" \
+            --subject "$V07_SRM_SUBJECT" \
+            --expected-md5 "$SRM_EXPECTED_MD5" \
+            --expected-size "$SRM_EXPECTED_SIZE" \
+            --out-dir "$V07_SRM_REFERENCE_DIR" \
+            --surrogates 49
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+
+      - name: Install Android platform
+        run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Set up Gradle 9.6
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.6.0'
+
+      - name: Kotlin vs Python full observed parity
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > "$RUNNER_TEMP/v07-srm-test-memory.init.gradle" <<'GRADLE'
+          gradle.projectsEvaluated {
+              rootProject.allprojects {
+                  tasks.withType(org.gradle.api.tasks.testing.Test).configureEach {
+                      maxHeapSize = "4g"
+                  }
+              }
+          }
+          GRADLE
+          gradle --init-script "$RUNNER_TEMP/v07-srm-test-memory.init.gradle" \
+            :app:testDebugUnitTest \
+            --tests 'de.meegread.app.analysis.CouplingFieldV07SrmReplicationParityTest' \
+            --no-daemon --stacktrace
+
+      - name: Upload subject reproducibility bundle
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v07-srm-${{ matrix.subject }}-dual-null
+          path: |
+            ${{ env.V07_SRM_REFERENCE_DIR }}/
+            app/build/test-results/testDebugUnitTest/
+          if-no-files-found: warn
+
+  aggregate:
+    needs: subject-replication
+    runs-on: ubuntu-latest
+    if: always() && needs.subject-replication.result == 'success'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - name: Install frozen phase-null dependency
+        run: python -m pip install --disable-pip-version-check numpy==2.2.6
+      - name: Download all subject artifacts
+        uses: actions/download-artifact@v5
+        with:
+          pattern: v07-srm-*-dual-null
+          path: build/v07-srm/subjects
+          merge-multiple: false
+      - name: Aggregate preregistered dual-null group inference
+        run: |
+          PYTHONPATH=tools/validation python tools/validation/v07_srm_dual_null.py aggregate \
+            --root build/v07-srm/subjects \
+            --out-dir build/v07-srm/group
+      - name: Upload group summary
+        uses: actions/upload-artifact@v4
+        with:
+          name: v07-srm-independent-dual-null-group
+          path: build/v07-srm/group/
