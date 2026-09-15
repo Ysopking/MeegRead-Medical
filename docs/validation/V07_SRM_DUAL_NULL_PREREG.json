@@ -1,0 +1,90 @@
+{
+  "schema": "meegread.v07.independent-dataset-dual-null-prereg.v1",
+  "validation_id": "v07-srm-ds003775-t1-sub001-sub010-dual-null",
+  "status": "FROZEN_BEFORE_RESULT_COMPUTATION",
+  "source": {
+    "provider": "OpenNeuro",
+    "dataset": "SRM Resting-state EEG",
+    "accession": "ds003775",
+    "version": "1.2.1",
+    "doi": "10.18112/openneuro.ds003775.v1.2.1",
+    "license": "CC0",
+    "dataset_git_commit": "cb354b249827d17fa0575b2b42521ba25982c16b",
+    "subjects": ["sub-001","sub-002","sub-003","sub-004","sub-005","sub-006","sub-007","sub-008","sub-009","sub-010"],
+    "session": "ses-t1",
+    "task": "resteyesc",
+    "condition": "four-minute uninterrupted resting-state EEG, eyes closed",
+    "path_template": "{subject}/ses-t1/eeg/{subject}_ses-t1_task-resteyesc_eeg.edf",
+    "expected_channel_count": 64,
+    "expected_sample_rate_hz": 1024.0,
+    "expected_recording_duration_s": 240,
+    "reference": "average"
+  },
+  "frozen_operator": {
+    "base_commit": "d8299e3b773649cbc90c911f8acfb27592ca2690",
+    "engine_version": "coupling-field-v0.7-adapter-1.0",
+    "engine_blob_sha1": "be472fb4939d723dc4133f3652a8deabee470a04",
+    "signal_engine_blob_sha1": "e6f25721ad18be07666bf38de4921de6ee914a21",
+    "edf_parser_blob_sha1": "dfdb7520cb51cfa3e5088dac0ad773fb778719ae",
+    "python_oracle_blob_sha1": "2cd26cf925a8d85970fb9dabaeb3a3c8d4409679",
+    "algorithm_fingerprint_sha256": "489b4dcd4dbeb167bc7309b2483bbf7e48e19fb8356bcc9831f97d7ce4acaa8a",
+    "sample_rate_hz": 1024.0,
+    "window_samples": 2048,
+    "window_policy": "tail",
+    "filter_hz": [1.0, 40.0],
+    "hilbert_kernel_radius": 31,
+    "nmi_bins": 8,
+    "var_order": 1,
+    "var_ridge": 0.001,
+    "gelfand_iterations": 80,
+    "coarse_grain": "deterministic greedy descending PLV*NMI",
+    "scale_node_counts": [64,32,16,8,4,2,1],
+    "operational_space": "SENSOR_SPACE_PROXY"
+  },
+  "primary_endpoint": {
+    "metric": "meanPhaseLocking",
+    "scales": [0,1,2,3,4,5],
+    "statistic": "OLS slope versus scale level",
+    "direction": "greater than null"
+  },
+  "null_models": {
+    "circular_shift": {
+      "surrogates_per_subject": 49,
+      "rule": "independent channel-wise circular shift within the exact 2048-sample tail window",
+      "offset": "1 + (uint64_be(SHA256(validation_id|shift|subject|replicate|channel)[0:8]) mod 2047)",
+      "finite_policy": "replace non-finite tail samples with 0.0 before shifting"
+    },
+    "fourier_phase_randomization": {
+      "surrogates_per_subject": 49,
+      "numpy_version": "2.2.6",
+      "rule": "for each channel independently, rFFT the exact cleaned 2048-sample tail; preserve every Fourier magnitude and the original DC and Nyquist coefficients; replace phases of bins k=1..1023 with deterministic phases theta=2*pi*u/2^64 where u=uint64_be(SHA256(validation_id|phase|subject|replicate|channel|k)[0:8]); inverse rFFT with n=2048; run the unchanged v0.7 operator",
+      "purpose": "destroy cross-channel phase relationships and the original temporal waveform while preserving each channel's periodogram"
+    }
+  },
+  "subject_inference": {
+    "p_shift": "(1 + count(shift_null_slope >= observed_slope)) / 50",
+    "p_phase": "(1 + count(phase_null_slope >= observed_slope)) / 50",
+    "dual_null_success": "p_shift <= 0.05 AND p_phase <= 0.05",
+    "alpha_each": 0.05
+  },
+  "group_inference": {
+    "primary_count": "number of 10 subjects with dual_null_success",
+    "test": "one-sided exact binomial upper tail with n=10 and p0=0.05; this is conservative because the probability of passing both valid alpha=0.05 subject tests is at most 0.05 without assuming independence between null models",
+    "alpha": 0.05
+  },
+  "parity_gate": {
+    "comparison": "every observed scale metric and every observed pair metric for every subject",
+    "floating_tolerance": "max(1e-9,1e-8*max(1,abs(expected)))",
+    "note": "surrogate generation is Python-only and does not alter the frozen Kotlin operator; Kotlin parity is required on every observed recording"
+  },
+  "data_integrity": {
+    "rule": "each EDF path is resolved against the frozen OpenNeuro Git commit; the git-annex MD5E size and MD5 encoded by that frozen symlink are verified against the downloaded S3 object before analysis",
+    "s3_template": "https://s3.amazonaws.com/openneuro.org/ds003775/{path}"
+  },
+  "guardrails": [
+    "No operator parameter, subject, endpoint, null rule, surrogate count, direction, threshold or tolerance may change after results are observed.",
+    "This is an independent-dataset replication of one operator-level statistic, not evidence of universality or a physical law.",
+    "Q is a coupling-loss proxy and chi_dyn is a VAR(1) spectral-radius coordinate.",
+    "Sensor-space research output only; no diagnostic, biomarker, source-localization or causal claim."
+  ]
+}

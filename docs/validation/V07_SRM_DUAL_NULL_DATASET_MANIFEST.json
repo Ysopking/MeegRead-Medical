@@ -1,0 +1,18 @@
+{
+  "schema": "meegread.openneuro.annex-manifest.v1",
+  "source_dataset": "OpenNeuro ds003775 v1.2.1",
+  "dataset_git_commit": "cb354b249827d17fa0575b2b42521ba25982c16b",
+  "note": "MD5 and byte-size values are taken from the git-annex MD5E keys at the frozen dataset commit; this manifest contains input identity metadata only, not analysis results.",
+  "files": {
+    "sub-001": {"path": "sub-001/ses-t1/eeg/sub-001_ses-t1_task-resteyesc_eeg.edf", "bytes": 31473920, "md5": "a4aa13370458a970886967bd6dc6d672"},
+    "sub-002": {"path": "sub-002/ses-t1/eeg/sub-002_ses-t1_task-resteyesc_eeg.edf", "bytes": 31473920, "md5": "52e66e8811f5f5b040734265192a96a6"},
+    "sub-003": {"path": "sub-003/ses-t1/eeg/sub-003_ses-t1_task-resteyesc_eeg.edf", "bytes": 31473920, "md5": "83ab63435409e23922ba489f54c48840"},
+    "sub-004": {"path": "sub-004/ses-t1/eeg/sub-004_ses-t1_task-resteyesc_eeg.edf", "bytes": 31473920, "md5": "fe04c15bfde636c1c7e09b691cf33198"},
+    "sub-005": {"path": "sub-005/ses-t1/eeg/sub-005_ses-t1_task-resteyesc_eeg.edf", "bytes": 31473920, "md5": "75ceced9afc37a780e2d2395e4575abd"},
+    "sub-006": {"path": "sub-006/ses-t1/eeg/sub-006_ses-t1_task-resteyesc_eeg.edf", "bytes": 31473920, "md5": "82540f736ede96aec3e5dd481254d497"},
+    "sub-007": {"path": "sub-007/ses-t1/eeg/sub-007_ses-t1_task-resteyesc_eeg.edf", "bytes": 31473920, "md5": "e19b59b454ebe7800ddcb07a7d977617"},
+    "sub-008": {"path": "sub-008/ses-t1/eeg/sub-008_ses-t1_task-resteyesc_eeg.edf", "bytes": 31473920, "md5": "b8ffb234c4bdc86d18b0da629ff78112"},
+    "sub-009": {"path": "sub-009/ses-t1/eeg/sub-009_ses-t1_task-resteyesc_eeg.edf", "bytes": 31473920, "md5": "0cc7fb3924cbd151b51528f69368cd6a"},
+    "sub-010": {"path": "sub-010/ses-t1/eeg/sub-010_ses-t1_task-resteyesc_eeg.edf", "bytes": 31473920, "md5": "bac54a9b694ed79d1c116762f45517b2"}
+  }
+}
