@@ -1,0 +1,73 @@
+{
+  "schema": "meegread.v07.confirmatory-replication-prereg.v1",
+  "validation_id": "v07-eegmmidb-r02-s002-s011-multisubject-null",
+  "status": "FROZEN_BEFORE_RESULT_COMPUTATION",
+  "pilot_exclusion": "S001R02 was already inspected and is excluded from confirmatory inference.",
+  "source": {
+    "provider": "PhysioNet",
+    "dataset": "EEG Motor Movement/Imagery Dataset",
+    "version": "1.0.0",
+    "doi": "10.13026/C28G6P",
+    "subjects": ["S002","S003","S004","S005","S006","S007","S008","S009","S010","S011"],
+    "run": "R02",
+    "condition": "one-minute baseline, eyes closed",
+    "path_template": "{subject}/{subject}R02.edf",
+    "expected_channel_count": 64,
+    "expected_sample_rate_hz": 160.0
+  },
+  "frozen_operator": {
+    "base_commit": "535e3136a36e6754bbd93a8cf36fcd91f02f4de0",
+    "engine_version": "coupling-field-v0.7-adapter-1.0",
+    "engine_blob_sha1": "be472fb4939d723dc4133f3652a8deabee470a04",
+    "signal_engine_blob_sha1": "e6f25721ad18be07666bf38de4921de6ee914a21",
+    "edf_parser_blob_sha1": "dfdb7520cb51cfa3e5088dac0ad773fb778719ae",
+    "python_oracle_blob_sha1": "2cd26cf925a8d85970fb9dabaeb3a3c8d4409679",
+    "algorithm_fingerprint_sha256": "489b4dcd4dbeb167bc7309b2483bbf7e48e19fb8356bcc9831f97d7ce4acaa8a",
+    "sample_rate_hz": 160.0,
+    "window_samples": 2048,
+    "window_policy": "tail",
+    "filter_hz": [1.0, 40.0],
+    "hilbert_kernel_radius": 31,
+    "nmi_bins": 8,
+    "var_order": 1,
+    "var_ridge": 0.001,
+    "gelfand_iterations": 80,
+    "coarse_grain": "deterministic greedy descending PLV*NMI",
+    "scale_node_counts": [64,32,16,8,4,2,1],
+    "operational_space": "SENSOR_SPACE_PROXY"
+  },
+  "primary_endpoint": {
+    "metric": "meanPhaseLocking",
+    "scales": [0,1,2,3,4,5],
+    "statistic": "OLS slope versus scale level",
+    "direction": "greater than null"
+  },
+  "null_model": {
+    "type": "independent channel-wise circular shift within the exact 2048-sample tail window",
+    "surrogates_per_subject": 49,
+    "offset": "1 + (uint64_be(SHA256(validation_id|subject|replicate|channel)[0:8]) mod 2047)",
+    "finite_policy": "replace non-finite tail samples with 0.0 before shifting",
+    "purpose": "destroy cross-channel temporal alignment while preserving each channel's cyclic temporal ordering and amplitude samples; run the unchanged operator afterward"
+  },
+  "subject_inference": {
+    "primary_empirical_p": "(1 + count(null_slope >= observed_slope)) / 50",
+    "alpha": 0.05,
+    "secondary": ["kappa slope greater than null", "log(couplingLossQ) slope less than null"]
+  },
+  "group_inference": {
+    "primary_count": "number of 10 subjects with primary empirical p <= 0.05",
+    "test": "one-sided exact binomial tail with n=10 and p=0.05",
+    "alpha": 0.05
+  },
+  "parity_gate": {
+    "comparison": "every observed scale metric and every observed pair metric for every subject",
+    "floating_tolerance": "max(1e-9,1e-8*max(1,abs(expected)))"
+  },
+  "guardrails": [
+    "No operator parameter, subject, endpoint, null rule, surrogate count, direction, threshold or tolerance may change after results are observed.",
+    "S001 remains pilot-only.",
+    "This tests reproducibility relative to one preregistered null, not universality or physical-law status.",
+    "Q is a coupling-loss proxy and chi_dyn is a VAR(1) spectral-radius coordinate.",
+    "Sensor-space research output only; no diagnostic, biomarker, source-localization or causal claim."
+  ]
+}
