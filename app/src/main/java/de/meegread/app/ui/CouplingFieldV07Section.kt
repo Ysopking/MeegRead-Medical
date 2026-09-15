@@ -29,6 +29,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import de.meegread.app.analysis.CouplingFieldV07Audit
 import de.meegread.app.analysis.CouplingFieldV07Engine
+import de.meegread.app.analysis.CouplingFieldV07InputAdapter
 import de.meegread.app.export.V07AuditExportManager
 import de.meegread.app.model.MeegRecording
 import kotlinx.coroutines.Dispatchers
@@ -49,7 +50,7 @@ fun CouplingFieldV07Section(recording: MeegRecording) {
 
     LaunchedEffect(recording) {
         computing = true
-        result = withContext(Dispatchers.Default) { CouplingFieldV07Engine.analyze(recording) }
+        result = withContext(Dispatchers.Default) { CouplingFieldV07InputAdapter.analyze(recording) }
         computing = false
     }
 
@@ -59,7 +60,11 @@ fun CouplingFieldV07Section(recording: MeegRecording) {
             when {
                 computing -> LinearProgressIndicator(Modifier.fillMaxWidth())
                 result == null -> Text(
-                    "Nicht berechenbar: mindestens zwei EEG/MEG-Kanäle mit ausreichender Datenlänge werden benötigt.",
+                    if (CouplingFieldV07InputAdapter.declaresSourceSpace(recording)) {
+                        "Quellraum-Eingang nicht berechenbar: mindestens zwei vorverarbeitete Quellknoten und eine eindeutige source_nodes- oder source_nodes_all_channels-Deklaration werden benötigt."
+                    } else {
+                        "Nicht berechenbar: mindestens zwei EEG/MEG-Kanäle mit ausreichender Datenlänge werden benötigt."
+                    },
                     style = MaterialTheme.typography.bodySmall
                 )
                 else -> {

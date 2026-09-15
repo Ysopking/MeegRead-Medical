@@ -37,6 +37,9 @@ object CouplingFieldV07Audit {
     data class Snapshot(
         val recordingName: String,
         val engineVersion: String,
+        val inputAdapterVersion: String,
+        val inputProfile: CouplingFieldV07InputAdapter.InputProfile,
+        val selectedSourceNodes: List<String>,
         val algorithmFingerprintSha256: String,
         val configSha256: String,
         val requestedWindowSamples: Int,
@@ -48,6 +51,8 @@ object CouplingFieldV07Audit {
             field("schema", SCHEMA, comma = true, indent = 1)
             field("recordingName", recordingName, comma = true, indent = 1)
             field("engineVersion", engineVersion, comma = true, indent = 1)
+            field("inputAdapterVersion", inputAdapterVersion, comma = true, indent = 1)
+            field("inputProfile", inputProfile.name, comma = true, indent = 1)
             field("algorithmFingerprintSha256", algorithmFingerprintSha256, comma = true, indent = 1)
             field("engineBlobSha1", ENGINE_BLOB_SHA1, comma = true, indent = 1)
             field("signalEngineBlobSha1", SIGNAL_ENGINE_BLOB_SHA1, comma = true, indent = 1)
@@ -58,6 +63,12 @@ object CouplingFieldV07Audit {
             numberField("sampleRateHz", result.sampleRateHz.toString(), comma = true, indent = 1)
             numberField("analysisWindowSamples", result.analysisWindowSamples.toString(), comma = true, indent = 1)
             numberField("finiteInputFraction", result.finiteInputFraction.toString(), comma = true, indent = 1)
+            append("  \"selectedSourceNodes\": [")
+            selectedSourceNodes.forEachIndexed { index, channel ->
+                if (index > 0) append(", ")
+                appendQuoted(channel)
+            }
+            append("],\n")
             append("  \"sourceChannels\": [")
             result.sourceChannels.forEachIndexed { index, channel ->
                 if (index > 0) append(", ")
@@ -111,21 +122,32 @@ object CouplingFieldV07Audit {
         requestedWindowSamples: Int = CouplingFieldV07Engine.DEFAULT_WINDOW_SAMPLES,
         maxScales: Int = CouplingFieldV07Engine.DEFAULT_MAX_SCALES
     ): Snapshot? {
-        val result = CouplingFieldV07Engine.analyze(recording, requestedWindowSamples, maxScales) ?: return null
+        val analysis = CouplingFieldV07InputAdapter.analyzeDetailed(
+            recording,
+            requestedWindowSamples,
+            maxScales
+        ) ?: return null
+        val result = analysis.result
         val config = listOf(
             "schema=$SCHEMA",
             "engine_version=${result.version}",
+            "input_adapter_version=${CouplingFieldV07InputAdapter.VERSION}",
+            "input_profile=${analysis.inputProfile.name}",
             "algorithm_sha256=$algorithmFingerprintSha256",
             "operational_space=${result.operationalSpace.name}",
             "sample_rate_hz=${java.lang.Double.toHexString(result.sampleRateHz)}",
             "requested_window_samples=$requestedWindowSamples",
             "analysis_window_samples=${result.analysisWindowSamples}",
             "max_scales=$maxScales",
+            "selected_source_nodes=${analysis.selectedSourceNodes.joinToString("\u001f")}",
             "source_channels=${result.sourceChannels.joinToString("\u001f")}"
         ).joinToString("\n")
         return Snapshot(
             recordingName = recording.name,
             engineVersion = result.version,
+            inputAdapterVersion = CouplingFieldV07InputAdapter.VERSION,
+            inputProfile = analysis.inputProfile,
+            selectedSourceNodes = analysis.selectedSourceNodes,
             algorithmFingerprintSha256 = algorithmFingerprintSha256,
             configSha256 = sha256(config),
             requestedWindowSamples = requestedWindowSamples,
