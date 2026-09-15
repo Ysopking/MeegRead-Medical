@@ -1,0 +1,127 @@
+name: v0.7 Second Public CogWear Parity
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  cogwear-parity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      APP_VALIDATION_BASE: 9fdde2593f2a6b7402077278c885485f96ad6f3d
+      ENGINE_BLOB_SHA1: be472fb4939d723dc4133f3652a8deabee470a04
+      SIGNAL_ENGINE_BLOB_SHA1: e6f25721ad18be07666bf38de4921de6ee914a21
+      ALGORITHM_FINGERPRINT_SHA256: 489b4dcd4dbeb167bc7309b2483bbf7e48e19fb8356bcc9831f97d7ce4acaa8a
+      PYTHON_ORACLE_CORE_BLOB_SHA1: 2cd26cf925a8d85970fb9dabaeb3a3c8d4409679
+      COGWEAR_ADAPTER_BLOB_SHA1: ed60ed6be57e55315750d497c01cd97dc3cf82a1
+      PREREG_BLOB_SHA1: e19dd1df1881127579f988ce15e9108a52a1063c
+      PHYSIONET_BASE: https://physionet.org/files/consumer-grade-wearables/1.0.0
+      COGWEAR_SOURCE_PATH: pilot/4/baseline/muse_eeg.csv
+      V07_COGWEAR_VALIDATION: 'true'
+      V07_COGWEAR_EEG_CSV: ${{ github.workspace }}/build/v07-cogwear/muse_eeg.csv
+      V07_COGWEAR_REFERENCE_DIR: ${{ github.workspace }}/build/v07-cogwear/reference
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Verify frozen preregistration and operator identities
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git hash-object docs/validation/V07_SECOND_PUBLIC_COGWEAR_PREREG.json)" = "$PREREG_BLOB_SHA1"
+          test "$(git hash-object app/src/main/java/de/meegread/app/analysis/CouplingFieldV07Engine.kt)" = "$ENGINE_BLOB_SHA1"
+          test "$(git hash-object app/src/main/java/de/meegread/app/analysis/SignalAnalysisEngine.kt)" = "$SIGNAL_ENGINE_BLOB_SHA1"
+          test "$(git hash-object tools/validation/v07_reference.py)" = "$PYTHON_ORACLE_CORE_BLOB_SHA1"
+          test "$(git hash-object tools/validation/v07_cogwear_reference.py)" = "$COGWEAR_ADAPTER_BLOB_SHA1"
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+
+      - name: Download and verify versioned PhysioNet CogWear baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$V07_COGWEAR_REFERENCE_DIR"
+          curl --fail --location --retry 3 --retry-delay 2 \
+            "$PHYSIONET_BASE/SHA256SUMS.txt" \
+            -o build/v07-cogwear/SHA256SUMS.txt
+          checksum_line="$(grep -F "$COGWEAR_SOURCE_PATH" build/v07-cogwear/SHA256SUMS.txt | head -n 1)"
+          test -n "$checksum_line"
+          expected_sha256="$(printf '%s\n' "$checksum_line" | awk '{print $1}')"
+          test "${#expected_sha256}" -eq 64
+          curl --fail --location --retry 3 --retry-delay 2 \
+            "$PHYSIONET_BASE/$COGWEAR_SOURCE_PATH" \
+            -o "$V07_COGWEAR_EEG_CSV"
+          actual_sha256="$(sha256sum "$V07_COGWEAR_EEG_CSV" | awk '{print $1}')"
+          echo "PhysioNet expected SHA-256: $expected_sha256"
+          echo "Downloaded actual SHA-256: $actual_sha256"
+          test "$actual_sha256" = "$expected_sha256"
+          printf '%s  %s\n' "$actual_sha256" "$COGWEAR_SOURCE_PATH" | tee "$V07_COGWEAR_REFERENCE_DIR/dataset.sha256"
+          echo "COGWEAR_DATASET_SHA256=$actual_sha256" >> "$GITHUB_ENV"
+
+      - name: Generate independent Python reference without tuning
+        shell: bash
+        run: |
+          set -euo pipefail
+          python tools/validation/v07_cogwear_reference.py \
+            --input "$V07_COGWEAR_EEG_CSV" \
+            --out-dir "$V07_COGWEAR_REFERENCE_DIR" \
+            --expected-source-sha256 "$COGWEAR_DATASET_SHA256" \
+            --app-base-commit "$APP_VALIDATION_BASE" \
+            --engine-blob-sha1 "$ENGINE_BLOB_SHA1" \
+            --signal-engine-blob-sha1 "$SIGNAL_ENGINE_BLOB_SHA1" \
+            --algorithm-fingerprint-sha256 "$ALGORITHM_FINGERPRINT_SHA256"
+          sha256sum tools/validation/v07_reference.py > "$V07_COGWEAR_REFERENCE_DIR/oracle-core.sha256"
+          sha256sum tools/validation/v07_cogwear_reference.py > "$V07_COGWEAR_REFERENCE_DIR/source-adapter.sha256"
+          sha256sum docs/validation/V07_SECOND_PUBLIC_COGWEAR_PREREG.json > "$V07_COGWEAR_REFERENCE_DIR/preregistration.sha256"
+          echo '--- second public scale reference ---'
+          cat "$V07_COGWEAR_REFERENCE_DIR/scales.csv"
+          echo '--- second public pair reference ---'
+          cat "$V07_COGWEAR_REFERENCE_DIR/pairs.csv"
+          echo '--- second public reference manifest ---'
+          cat "$V07_COGWEAR_REFERENCE_DIR/manifest.json"
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+
+      - name: Install Android platform
+        run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Set up Gradle 9.6
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.6.0'
+
+      - name: Kotlin vs Python second public-data parity
+        shell: bash
+        run: |
+          set -euo pipefail
+          gradle :app:testDebugUnitTest \
+            --tests 'de.meegread.app.analysis.CouplingFieldV07CogWearParityTest' \
+            --no-daemon --stacktrace
+
+      - name: Upload second public reproducibility bundle
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v07-second-public-cogwear-parity
+          path: |
+            build/v07-cogwear/reference/
+            app/build/test-results/testDebugUnitTest/
+          if-no-files-found: warn

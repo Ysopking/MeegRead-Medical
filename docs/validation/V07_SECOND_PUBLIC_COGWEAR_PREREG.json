@@ -1,0 +1,76 @@
+{
+  "schema": "meegread.v07.public-validation-prereg.v1",
+  "validation_id": "v07-second-public-cogwear-pilot4-baseline",
+  "status": "FROZEN_BEFORE_RESULT_COMPUTATION",
+  "purpose": "Independent second public raw-EEG transport and Kotlin-vs-Python parity test for the already frozen v0.7 coupling-field operator. No parameter may be changed in response to the numerical outcome.",
+  "source": {
+    "repository": "PhysioNet",
+    "dataset": "CogWear: Can we detect cognitive effort with consumer-grade wearables?",
+    "version": "1.0.0",
+    "doi": "10.13026/5f6t-b637",
+    "license": "Open Data Commons Open Database License v1.0",
+    "path": "pilot/4/baseline/muse_eeg.csv",
+    "file_url": "https://physionet.org/files/consumer-grade-wearables/1.0.0/pilot/4/baseline/muse_eeg.csv",
+    "checksum_manifest_url": "https://physionet.org/files/consumer-grade-wearables/1.0.0/SHA256SUMS.txt",
+    "checksum_policy": "At runtime, extract the SHA-256 for the exact source path from the versioned PhysioNet SHA256SUMS.txt and require the downloaded file to match before analysis.",
+    "condition": "pilot participant 4 baseline",
+    "condition_definition": "Three-minute relaxed baseline with no task, as documented by CogWear.",
+    "device": "Muse S (Gen2)",
+    "documented_sample_rate_hz": 256.0
+  },
+  "input_mapping": {
+    "format": "CogWear muse_eeg.csv",
+    "record_policy": "Use every non-empty CSV record after the header. A non-empty record with fewer than 25 columns is a hard failure.",
+    "raw_columns_zero_based": {
+      "TP9": 21,
+      "AF7": 22,
+      "AF8": 23,
+      "TP10": 24
+    },
+    "raw_columns_one_based_documentation": "Columns 22-25 are raw TP9, AF7, AF8, TP10 in microvolts according to CogWear description.csv.",
+    "non_numeric_raw_cell_policy": "Represent an empty or otherwise non-numeric raw cell as NaN; the frozen v0.7 engine then applies its existing non-finite-to-zero cleaning. No rows are selected or removed based on signal values.",
+    "channel_order_for_engine": "The engine sorts labels lexicographically, yielding AF7, AF8, TP10, TP9.",
+    "operational_space": "SENSOR_SPACE_PROXY"
+  },
+  "frozen_operator": {
+    "app_repository": "Ysopking/MeegRead-Medical",
+    "base_commit": "9fdde2593f2a6b7402077278c885485f96ad6f3d",
+    "engine_version": "coupling-field-v0.7-adapter-1.0",
+    "engine_blob_sha1": "be472fb4939d723dc4133f3652a8deabee470a04",
+    "signal_engine_blob_sha1": "e6f25721ad18be07666bf38de4921de6ee914a21",
+    "algorithm_fingerprint_sha256": "489b4dcd4dbeb167bc7309b2483bbf7e48e19fb8356bcc9831f97d7ce4acaa8a",
+    "sample_rate_hz": 256.0,
+    "requested_window_samples": 2048,
+    "window_policy": "tail; floorPowerOfTwo(min(requestedWindowSamples, commonLength))",
+    "max_scales": 8,
+    "filter": "existing v0.7 biquad high-pass/low-pass path; for 256 Hz this is 1-40 Hz",
+    "hilbert_kernel_radius": 31,
+    "nmi_bins": 8,
+    "var_order": 1,
+    "var_ridge": 0.001,
+    "gelfand_iterations": 80,
+    "coarse_grain": "existing deterministic greedy descending PLV*NMI bundle weight"
+  },
+  "parity_gate": {
+    "python_oracle": "Reuse the independent mathematical implementation in tools/validation/v07_reference.py; add only a CogWear CSV input adapter and generic output manifest for this source.",
+    "kotlin_engine": "Call the unchanged CouplingFieldV07Engine on the same four raw channels and frozen 256 Hz sample rate.",
+    "expected_node_counts": [4, 2, 1],
+    "comparison": "Compare all exported scale values and all pair values, including pair ordering and node labels.",
+    "floating_tolerance": "max(1e-9, 1e-8 * max(1, abs(expected)))",
+    "required_invariants": [
+      "engine version unchanged",
+      "engine and signal-engine Git blob identities unchanged",
+      "SENSOR_SPACE_PROXY",
+      "analysis window 2048",
+      "source channel labels AF7, AF8, TP10, TP9",
+      "scale node counts 4,2,1"
+    ]
+  },
+  "interpretation_guardrails": [
+    "No numerical result from this dataset may be used to retune v0.7.",
+    "A green parity result validates reproducible software transport on a second independent public recording; it does not establish universality, diagnosis, biomarker validity or causality.",
+    "Q remains a normalized coupling-loss proxy, not physical power.",
+    "chi_dyn remains a ridge VAR(1) spectral-radius coordinate, not a calibrated L/C ratio.",
+    "This four-channel 4->2->1 run is not by itself a strong scale-invariance test because it contains only two non-terminal pairwise scales."
+  ]
+}
