@@ -129,7 +129,22 @@ jobs:
           gradle-version: '9.6.0'
 
       - name: Kotlin vs Python full observed parity
-        run: gradle :app:testDebugUnitTest --tests 'de.meegread.app.analysis.CouplingFieldV07SrmReplicationParityTest' --no-daemon --stacktrace
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > "$RUNNER_TEMP/v07-srm-test-memory.init.gradle" <<'GRADLE'
+          gradle.projectsEvaluated {
+              rootProject.allprojects {
+                  tasks.withType(org.gradle.api.tasks.testing.Test).configureEach {
+                      maxHeapSize = "4g"
+                  }
+              }
+          }
+          GRADLE
+          gradle --init-script "$RUNNER_TEMP/v07-srm-test-memory.init.gradle" \
+            :app:testDebugUnitTest \
+            --tests 'de.meegread.app.analysis.CouplingFieldV07SrmReplicationParityTest' \
+            --no-daemon --stacktrace
 
       - name: Upload subject reproducibility bundle
         if: always()
