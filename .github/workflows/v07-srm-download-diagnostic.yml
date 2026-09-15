@@ -1,0 +1,23 @@
+name: v0.7 SRM Download Diagnostic
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download frozen-path SRM sub-001 and print transport identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          url='https://s3.amazonaws.com/openneuro.org/ds003775/sub-001/ses-t1/eeg/sub-001_ses-t1_task-resteyesc_eeg.edf'
+          curl --fail --location --retry 3 "$url" -o /tmp/sub001.edf
+          echo "bytes=$(stat -c%s /tmp/sub001.edf)"
+          echo "md5=$(md5sum /tmp/sub001.edf | awk '{print $1}')"
+          echo "sha256=$(sha256sum /tmp/sub001.edf | awk '{print $1}')"
