@@ -1,0 +1,109 @@
+name: v0.7 Public Muse Parity
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  public-muse-parity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      DATASET_COMMIT: 109e9a199efc7900810f7d2cad6d6852f0d1f324
+      DATASET_BLOB_SHA1: a5931f37244054fbf7997999505730c989069f72
+      APP_FROZEN_COMMIT: 4d39eeae6e60b3ecedc53d8d567d857d5017fdcc
+      ENGINE_BLOB_SHA1: be472fb4939d723dc4133f3652a8deabee470a04
+      SIGNAL_ENGINE_BLOB_SHA1: e6f25721ad18be07666bf38de4921de6ee914a21
+      V07_PUBLIC_VALIDATION: 'true'
+      V07_PUBLIC_EEG_CSV: ${{ github.workspace }}/build/v07-public/resting-state.csv
+      V07_PUBLIC_REFERENCE_DIR: ${{ github.workspace }}/build/v07-public/reference
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Verify frozen Android operator blobs
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git hash-object app/src/main/java/de/meegread/app/analysis/CouplingFieldV07Engine.kt)" = "$ENGINE_BLOB_SHA1"
+          test "$(git hash-object app/src/main/java/de/meegread/app/analysis/SignalAnalysisEngine.kt)" = "$SIGNAL_ENGINE_BLOB_SHA1"
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+
+      - name: Download pinned public resting-state Muse EEG
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/v07-public/reference
+          curl --fail --location --retry 3 --retry-delay 2 \
+            "https://raw.githubusercontent.com/itayinbarr/web-muse/${DATASET_COMMIT}/assets/resting-state.csv" \
+            -o "$V07_PUBLIC_EEG_CSV"
+          actual_blob="$(git hash-object "$V07_PUBLIC_EEG_CSV")"
+          echo "dataset git blob: $actual_blob"
+          test "$actual_blob" = "$DATASET_BLOB_SHA1"
+          sha256sum "$V07_PUBLIC_EEG_CSV" | tee build/v07-public/reference/dataset.sha256
+
+      - name: Generate independent Python reference
+        shell: bash
+        run: |
+          set -euo pipefail
+          python tools/validation/v07_reference.py \
+            --input "$V07_PUBLIC_EEG_CSV" \
+            --out-dir "$V07_PUBLIC_REFERENCE_DIR" \
+            --sample-rate-hz 256 \
+            --source-commit "$DATASET_COMMIT" \
+            --source-blob-sha1 "$DATASET_BLOB_SHA1" \
+            --app-commit "$APP_FROZEN_COMMIT" \
+            --engine-blob-sha1 "$ENGINE_BLOB_SHA1"
+          sha256sum tools/validation/v07_reference.py > build/v07-public/reference/oracle.sha256
+          echo '--- frozen scale reference ---'
+          cat "$V07_PUBLIC_REFERENCE_DIR/scales.csv"
+          echo '--- frozen pair reference ---'
+          cat "$V07_PUBLIC_REFERENCE_DIR/pairs.csv"
+          echo '--- reference manifest ---'
+          cat "$V07_PUBLIC_REFERENCE_DIR/manifest.json"
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+
+      - name: Install Android platform
+        run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Set up Gradle 9.6
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.6.0'
+
+      - name: Kotlin vs Python public-data parity
+        shell: bash
+        run: |
+          set -euo pipefail
+          gradle :app:testDebugUnitTest \
+            --tests 'de.meegread.app.analysis.CouplingFieldV07PublicDataParityTest' \
+            --no-daemon --stacktrace
+
+      - name: Upload reproducibility bundle
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v07-public-muse-parity
+          path: |
+            build/v07-public/reference/
+            app/build/test-results/testDebugUnitTest/
+          if-no-files-found: warn
