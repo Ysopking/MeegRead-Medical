@@ -89,6 +89,10 @@ fun MeegReadApp() {
                 Section.ANALYSIS -> Column {
                     AnalysisScreen(recording) { recording = it }
                     recording?.let {
+                        // v0.7 is the primary theory-aligned research surface.
+                        CouplingFieldV07Section(it)
+
+                        // Legacy/research comparison layers remain available during migration.
                         ThermodynamicLoadSection(it)
                         ResearchFriction19Section(it)
                         BrmhCohortSupportSection(it)
