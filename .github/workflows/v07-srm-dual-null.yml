@@ -24,11 +24,12 @@ jobs:
       PYTHON_ORACLE_BLOB_SHA1: 2cd26cf925a8d85970fb9dabaeb3a3c8d4409679
       EEGMMIDB_HELPER_BLOB_SHA1: 9d1f55395c84eee8ddcbcd113ad2482435aaf0d1
       PREREG_BLOB_SHA1: ace98ad6960771c08162cb9f45dad24fb93e0dfc
+      ERRATUM_BLOB_SHA1: f22e8451387381a41c5212a52b75e4e852b69871
       DATASET_MANIFEST_BLOB_SHA1: ec96aaa791167af0c50563562d71d206786c6508
       SRM_RUNNER_BLOB_SHA1: a677c79dd5f6dd2f8ab2caa9600076faf6307a4b
       SRM_TEST_BLOB_SHA1: 69bc09d0810f2ddbddcf4cea5df6adef8a95e7be
       OPENNEURO_COMMIT: cb354b249827d17fa0575b2b42521ba25982c16b
-      OPENNEURO_BASE: https://s3.amazonaws.com/openneuro.org/ds003775
+      OPENNEURO_CLIENT_VERSION: 2026.7.1
       V07_SRM_REPLICATION: 'true'
       V07_SRM_SUBJECT: ${{ matrix.subject }}
       V07_SRM_EDF: ${{ github.workspace }}/build/v07-srm/${{ matrix.subject }}.edf
@@ -43,6 +44,7 @@ jobs:
         run: |
           set -euo pipefail
           test "$(git hash-object docs/validation/V07_SRM_DUAL_NULL_PREREG.json)" = "$PREREG_BLOB_SHA1"
+          test "$(git hash-object docs/validation/V07_SRM_DUAL_NULL_PREREG_ERRATUM_1.json)" = "$ERRATUM_BLOB_SHA1"
           test "$(git hash-object docs/validation/V07_SRM_DUAL_NULL_DATASET_MANIFEST.json)" = "$DATASET_MANIFEST_BLOB_SHA1"
           test "$(git hash-object tools/validation/v07_srm_dual_null.py)" = "$SRM_RUNNER_BLOB_SHA1"
           test "$(git hash-object app/src/test/java/de/meegread/app/analysis/CouplingFieldV07SrmReplicationParityTest.kt)" = "$SRM_TEST_BLOB_SHA1"
@@ -57,10 +59,11 @@ jobs:
         with:
           python-version: '3.13'
 
-      - name: Install frozen phase-null dependency
-        run: python -m pip install --disable-pip-version-check numpy==2.2.6
+      - name: Install frozen validation dependencies
+        run: |
+          python -m pip install --disable-pip-version-check numpy==2.2.6 openneuro-py==${OPENNEURO_CLIENT_VERSION}
 
-      - name: Resolve frozen OpenNeuro identity and download exact EDF
+      - name: Download exact frozen-identity EDF through OpenNeuro client
         shell: bash
         run: |
           set -euo pipefail
@@ -79,11 +82,17 @@ jobs:
           source_path="${META[0]}"
           expected_md5="${META[1]}"
           expected_size="${META[2]}"
-          curl --fail --location --retry 4 --retry-delay 3 "$OPENNEURO_BASE/$source_path" -o "$V07_SRM_EDF"
-          actual_size="$(stat -c%s "$V07_SRM_EDF")"
-          actual_md5="$(md5sum "$V07_SRM_EDF" | awk '{print $1}')"
+          download_root="${RUNNER_TEMP}/openneuro-${V07_SRM_SUBJECT}"
+          rm -rf "$download_root"
+          mkdir -p "$download_root"
+          openneuro-py download --dataset=ds003775 --target-dir="$download_root" --include="$source_path"
+          downloaded="$download_root/$source_path"
+          test -f "$downloaded"
+          actual_size="$(stat -c%s "$downloaded")"
+          actual_md5="$(md5sum "$downloaded" | awk '{print $1}')"
           test "$actual_size" = "$expected_size"
           test "$actual_md5" = "$expected_md5"
+          cp "$downloaded" "$V07_SRM_EDF"
           echo "SRM_EXPECTED_MD5=$expected_md5" >> "$GITHUB_ENV"
           echo "SRM_EXPECTED_SIZE=$expected_size" >> "$GITHUB_ENV"
           echo "SRM_DATASET_SHA256=$(sha256sum "$V07_SRM_EDF" | awk '{print $1}')" >> "$GITHUB_ENV"
