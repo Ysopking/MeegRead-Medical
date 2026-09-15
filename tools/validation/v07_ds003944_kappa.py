@@ -11,6 +11,7 @@ import csv
 import json
 import math
 import os
+import re
 import statistics
 from pathlib import Path
 from typing import Dict, List, Sequence
@@ -18,7 +19,7 @@ from typing import Dict, List, Sequence
 import mne
 import v07_reference as core
 
-ADAPTER_VERSION = "python-v07-ds003944-kappa-confirmatory-1.0"
+ADAPTER_VERSION = "python-v07-ds003944-kappa-confirmatory-1.0.1"
 EXPECTED_SAMPLE_RATE_HZ = 1000.0
 WINDOW_SAMPLES = 2048
 WINDOWS_PER_SUBJECT = 12
@@ -49,8 +50,62 @@ def window_starts(n: int) -> List[int]:
     return [math.floor(k * (n - WINDOW_SAMPLES) / (WINDOWS_PER_SUBJECT - 1)) for k in range(WINDOWS_PER_SUBJECT)]
 
 
+def marker_compatible_header(vhdr_path: str) -> str:
+    """Create an empty-marker compatibility header without altering verified source bytes.
+
+    NEMAR's frozen BrainVision headers omit MarkerFile because these resting recordings ship
+    without a marker sidecar. MNE 1.10.1 nevertheless requires the option. Erratum 1 freezes a
+    deterministic empty marker shim before any ds003944 operator result was computed.
+    """
+    src = Path(vhdr_path)
+    payload = src.read_bytes()
+    if re.search(rb"(?im)^\s*MarkerFile\s*=", payload):
+        return str(src)
+
+    common = b"[Common Infos]"
+    common_pos = payload.find(common)
+    if common_pos < 0:
+        raise ValueError(f"BrainVision header lacks [Common Infos]: {src}")
+    newline = b"\r\n" if b"\r\n" in payload else b"\n"
+    line_end = payload.find(newline, common_pos)
+    if line_end < 0:
+        raise ValueError(f"Malformed [Common Infos] section: {src}")
+
+    data_match = re.search(rb"(?im)^\s*DataFile\s*=\s*([^\r\n]+?)\s*$", payload)
+    if data_match is None:
+        raise ValueError(f"BrainVision header lacks DataFile: {src}")
+    data_file = data_match.group(1).strip()
+    try:
+        data_file.decode("ascii")
+    except UnicodeDecodeError as exc:
+        raise ValueError(f"Non-ASCII BrainVision DataFile is outside frozen adapter contract: {data_file!r}") from exc
+
+    marker_name = f"{src.stem}.meegread-empty.vmrk"
+    compat_name = f"{src.stem}.meegread-compat.vhdr"
+    marker_path = src.with_name(marker_name)
+    compat_path = src.with_name(compat_name)
+
+    insertion = b"MarkerFile=" + marker_name.encode("ascii") + newline
+    patched = payload[: line_end + len(newline)] + insertion + payload[line_end + len(newline) :]
+    compat_path.write_bytes(patched)
+
+    marker_payload = newline.join([
+        b"Brain Vision Data Exchange Marker File, Version 1.0",
+        b"",
+        b"[Common Infos]",
+        b"Codepage=UTF-8",
+        b"DataFile=" + data_file,
+        b"",
+        b"[Marker Infos]",
+        b"",
+    ])
+    marker_path.write_bytes(marker_payload)
+    return str(compat_path)
+
+
 def load_fixed_channels(vhdr_path: str) -> tuple[Dict[str, List[float]], int]:
-    raw = mne.io.read_raw_brainvision(vhdr_path, preload=False, verbose="ERROR")
+    decode_header = marker_compatible_header(vhdr_path)
+    raw = mne.io.read_raw_brainvision(decode_header, preload=False, verbose="ERROR")
     sfreq = float(raw.info["sfreq"])
     if abs(sfreq - EXPECTED_SAMPLE_RATE_HZ) > 1e-12:
         raise ValueError(f"Unexpected sample rate: {sfreq}")
@@ -163,6 +218,7 @@ def analyze_subject(vhdr_path: str, subject: str, group: str, source_metadata_pa
         "subject": subject,
         "group": group,
         "source_metadata": source_metadata,
+        "brainvision_marker_compatibility": "deterministic empty-marker shim; preregistration erratum 1",
         "sample_rate_hz": EXPECTED_SAMPLE_RATE_HZ,
         "selected_channel_count": 19,
         "canonical_channel_order": CANONICAL_ORDER,
