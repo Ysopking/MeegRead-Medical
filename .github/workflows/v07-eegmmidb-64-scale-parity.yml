@@ -55,8 +55,9 @@ jobs:
           curl --fail --location --retry 3 --retry-delay 2 \
             "$PHYSIONET_BASE/SHA256SUMS.txt" \
             -o build/v07-eegmmidb/SHA256SUMS.txt
-          checksum_line="$(grep -F "$EEGMMIDB_SOURCE_PATH" build/v07-eegmmidb/SHA256SUMS.txt | head -n 1)"
+          checksum_line="$(awk -v path="$EEGMMIDB_SOURCE_PATH" '$2 == path || $2 == "./" path { print; exit }' build/v07-eegmmidb/SHA256SUMS.txt)"
           test -n "$checksum_line"
+          echo "Matched checksum manifest entry: $checksum_line"
           expected_sha256="$(printf '%s\n' "$checksum_line" | awk '{print $1}')"
           test "${#expected_sha256}" -eq 64
           curl --fail --location --retry 3 --retry-delay 2 \
