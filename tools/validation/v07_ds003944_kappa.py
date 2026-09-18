@@ -20,7 +20,7 @@ from typing import Dict, List, Sequence
 import mne
 import v07_reference as core
 
-ADAPTER_VERSION = "python-v07-ds003944-kappa-confirmatory-1.0.4"
+ADAPTER_VERSION = "python-v07-ds003944-kappa-confirmatory-1.0.5"
 CHANNELS_TSV_BLOB_SHA1 = "2d82b42319011eb1358e1413eab348307271e6f5"
 EXPECTED_SAMPLE_RATE_HZ = 1000.0
 WINDOW_SAMPLES = 2048
@@ -118,7 +118,14 @@ def load_fixed_channels(vhdr_path: str, channels_tsv_path: str) -> tuple[Dict[st
         bids_names = [row["name"] for row in csv.DictReader(f, delimiter="\t")]
     if len(bids_names) != len(raw.ch_names):
         raise ValueError(f"Channel-count mismatch: metadata={len(bids_names)} decoded={len(raw.ch_names)}")
-    if raw.ch_names == [f"EEG{i:03d}" for i in range(1, len(raw.ch_names) + 1)]:
+    generic_ordinals = []
+    for expected_index, name in enumerate(raw.ch_names, start=1):
+        match = re.fullmatch(r"[A-Za-z]+(\\d{3})", name)
+        if match is None or int(match.group(1)) != expected_index:
+            generic_ordinals = []
+            break
+        generic_ordinals.append(expected_index)
+    if len(generic_ordinals) == len(raw.ch_names):
         raw.rename_channels(dict(zip(raw.ch_names, bids_names)))
     if abs(sfreq - EXPECTED_SAMPLE_RATE_HZ) > 1e-12:
         raise ValueError(f"Unexpected sample rate: {sfreq}")
@@ -232,7 +239,7 @@ def analyze_subject(vhdr_path: str, channels_tsv_path: str, subject: str, group:
         "group": group,
         "source_metadata": source_metadata,
         "brainvision_marker_compatibility": "deterministic empty-marker shim; preregistration erratum 1",
-        "channel_metadata_binding": "frozen BIDS channels.tsv positional binding for generic EEG### decoder labels; preregistration erratum 2",
+        "channel_metadata_binding": "frozen BIDS channels.tsv positional binding for generic ordinal decoder labels; preregistration errata 2 and 5",
         "channels_tsv_blob_sha1": CHANNELS_TSV_BLOB_SHA1,
         "sample_rate_hz": EXPECTED_SAMPLE_RATE_HZ,
         "selected_channel_count": 19,

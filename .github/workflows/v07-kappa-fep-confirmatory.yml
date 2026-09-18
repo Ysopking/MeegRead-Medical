@@ -26,6 +26,7 @@ jobs:
           test "$(git hash-object docs/validation/V07_KAPPA_FEP_CONFIRMATORY_PREREG_ERRATUM_2.json)" = "0d5484e03672fe17d4f7967005270c78b82ffb4a"
           test "$(git hash-object docs/validation/V07_KAPPA_FEP_CONFIRMATORY_PREREG_ERRATUM_3.json)" = "7a12a6e455f923262839f31501588a046caff404"
           test "$(git hash-object docs/validation/V07_KAPPA_FEP_CONFIRMATORY_PREREG_ERRATUM_4.json)" = "950b22708476ec8d90b87428a23024bed4eb1576"
+          test "$(git hash-object docs/validation/V07_KAPPA_FEP_CONFIRMATORY_PREREG_ERRATUM_5.json)" = "efa813999d0437c4ffc35004ab57a628d78e7404"
 
       - name: Checkout frozen NEMAR metadata
         shell: bash
@@ -74,9 +75,10 @@ jobs:
       ERRATUM_2_BLOB_SHA1: 0d5484e03672fe17d4f7967005270c78b82ffb4a
       ERRATUM_3_BLOB_SHA1: 7a12a6e455f923262839f31501588a046caff404
       ERRATUM_4_BLOB_SHA1: 950b22708476ec8d90b87428a23024bed4eb1576
+      ERRATUM_5_BLOB_SHA1: efa813999d0437c4ffc35004ab57a628d78e7404
       CHANNELS_TSV_BLOB_SHA1: 2d82b42319011eb1358e1413eab348307271e6f5
       DOWNLOAD_BLOB_SHA1: 38be2738cb36adcea4a10fc43ad5d2cc69897c44
-      SUBJECT_SCRIPT_BLOB_SHA1: adcc63602023bbf2e36f99bcbd653b254788d9fb
+      SUBJECT_SCRIPT_BLOB_SHA1: 7f6fd9c64baa9edfe0f020faa568ce6742c81108
       GROUP_SCRIPT_BLOB_SHA1: d0511884511eb8ae3fbf3a30859a17f266c1a732
       PARITY_TEST_BLOB_SHA1: 8b9a2bddd5ba5e146e3e3b775d18c45e4d08d376
       NEMAR_COMMIT: 0831487239218bc9daef1cc43d91d07b0c7d153d
@@ -99,6 +101,7 @@ jobs:
           test "$(git hash-object docs/validation/V07_KAPPA_FEP_CONFIRMATORY_PREREG_ERRATUM_2.json)" = "$ERRATUM_2_BLOB_SHA1"
           test "$(git hash-object docs/validation/V07_KAPPA_FEP_CONFIRMATORY_PREREG_ERRATUM_3.json)" = "$ERRATUM_3_BLOB_SHA1"
           test "$(git hash-object docs/validation/V07_KAPPA_FEP_CONFIRMATORY_PREREG_ERRATUM_4.json)" = "$ERRATUM_4_BLOB_SHA1"
+          test "$(git hash-object docs/validation/V07_KAPPA_FEP_CONFIRMATORY_PREREG_ERRATUM_5.json)" = "$ERRATUM_5_BLOB_SHA1"
           test "$(git hash-object tools/validation/v07_ds003944_download.py)" = "$DOWNLOAD_BLOB_SHA1"
           test "$(git hash-object tools/validation/v07_ds003944_kappa.py)" = "$SUBJECT_SCRIPT_BLOB_SHA1"
           test "$(git hash-object tools/validation/v07_ds003944_group.py)" = "$GROUP_SCRIPT_BLOB_SHA1"
@@ -205,6 +208,7 @@ jobs:
           test "$(git hash-object docs/validation/V07_KAPPA_FEP_CONFIRMATORY_PREREG_ERRATUM_2.json)" = "0d5484e03672fe17d4f7967005270c78b82ffb4a"
           test "$(git hash-object docs/validation/V07_KAPPA_FEP_CONFIRMATORY_PREREG_ERRATUM_3.json)" = "7a12a6e455f923262839f31501588a046caff404"
           test "$(git hash-object docs/validation/V07_KAPPA_FEP_CONFIRMATORY_PREREG_ERRATUM_4.json)" = "950b22708476ec8d90b87428a23024bed4eb1576"
+          test "$(git hash-object docs/validation/V07_KAPPA_FEP_CONFIRMATORY_PREREG_ERRATUM_5.json)" = "efa813999d0437c4ffc35004ab57a628d78e7404"
           test "$(git hash-object tools/validation/v07_ds003944_group.py)" = "d0511884511eb8ae3fbf3a30859a17f266c1a732"
 
       - name: Set up Python
