@@ -1,0 +1,22 @@
+{
+  "document": "V07_KAPPA_FEP_CONFIRMATORY_PREREG_ERRATUM_5",
+  "scope": "source-decoder generic-label recognition only",
+  "discovered_after": "Run 35340799374; sub-1983 failed in channel-name binding while other subject jobs had already completed, but no successful subject kappa/secondary values or aggregate outcome were inspected",
+  "observed_failure": "For sub-1983 MNE exposed the ordered generic labels EEG001..EEG060,EOG061,EOG062,ECG063,EEG064. The frozen adapter recognized only the narrower all-EEG pattern EEG001..EEG064, so it did not apply the already frozen positional BIDS channels.tsv binding.",
+  "correction": {
+    "rule": "Treat a decoded channel list as generic positional labels when every name consists of letters followed by a three-digit ordinal equal to its 1-based channel position. Only then bind positionally to the already frozen BIDS channels.tsv names before selecting the unchanged preregistered 19 sensors.",
+    "frozen_channels_tsv_blob_sha1": "2d82b42319011eb1358e1413eab348307271e6f5",
+    "frozen_nemar_commit": "0831487239218bc9daef1cc43d91d07b0c7d153d"
+  },
+  "safeguards": [
+    "The ordinal sequence must be exact 001..N; arbitrary or semantic channel labels are never positionally remapped.",
+    "The number of BIDS channel rows must equal the number of decoded channels.",
+    "The frozen channels.tsv Git blob identity must match before any renaming.",
+    "No successful subject kappa or secondary metric value was inspected to determine this correction."
+  ],
+  "invariants": [
+    "No source EEG bytes, BIDS metadata bytes, channel order or preregistered channel mapping are changed.",
+    "No preregistered sensor, window, hierarchy, endpoint, hypothesis, cohort, exclusion, statistical test or alpha is changed.",
+    "No aggregate group result existed when this correction was frozen."
+  ]
+}

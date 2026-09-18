@@ -1,0 +1,35 @@
+{
+  "schema": "meegread.v07.kappa-independent-clinical-confirmatory.erratum.v1",
+  "parent_preregistration": "docs/validation/V07_KAPPA_FEP_CONFIRMATORY_PREREG.json",
+  "status": "FROZEN_BEFORE_ANY_DS003944_OPERATOR_RESULT",
+  "trigger": {
+    "workflow_run": 35014737537,
+    "first_attempted_subject": "sub-1990",
+    "stage": "BrainVision source decoding before core.analyze",
+    "observed_error": "MNE 1.10.1 rejected the verified NEMAR .vhdr because the [Common Infos] section has no MarkerFile entry.",
+    "outcome_exposure": "NONE: verified source bytes were downloaded, but the failure occurred inside read_raw_brainvision before load_fixed_channels returned and before any v0.7 scale, pair, kappa, PLV, Q, chi_dyn, stability, subject score or group statistic was computed."
+  },
+  "transport_correction": {
+    "reason": "The frozen NEMAR files intentionally provide BrainVision .vhdr and .eeg data without a marker sidecar. MNE requires a MarkerFile entry even though markers are irrelevant to this resting-state operator.",
+    "rule": "Keep the downloaded .vhdr and .eeg bytes unchanged and continue to verify their frozen MD5E identities. For decoding only, create a deterministic temporary compatibility .vhdr that is byte-for-byte text-equivalent except for insertion of one MarkerFile entry in [Common Infos], plus a deterministic empty BrainVision marker sidecar referring to the already-verified .eeg file. MNE reads this compatibility header; only the fixed 19 EEG sample arrays are passed onward. The original verified source files remain the provenance identity.",
+    "synthetic_marker_semantics": "empty; no events, timing markers, exclusions, annotations or samples are introduced",
+    "scope": "source-format compatibility only"
+  },
+  "unchanged_frozen_items": [
+    "72-person non-A cohort and 28 Control / 44 Psychosis counts",
+    "group labels",
+    "19-sensor RepOD mapping and channel order",
+    "1000 Hz sample rate",
+    "2048-sample windows",
+    "12 deterministic windows per person",
+    "v0.7 engine and independent Python numerical oracle",
+    "19->10->5->3->2->1 coarse-graining ladder",
+    "primary endpoint median_multiscale_kappa_slope",
+    "direction Psychosis < Control",
+    "one-sided Mann-Whitney group test and alpha 0.05",
+    "all secondary endpoints",
+    "Kotlin-Python parity tolerance",
+    "all diagnostic/source-space/universality guardrails"
+  ],
+  "interpretation": "This erratum changes no scientific hypothesis or numerical operator. It repairs a source-file compatibility assumption discovered before the first ds003944 operator output existed."
+}

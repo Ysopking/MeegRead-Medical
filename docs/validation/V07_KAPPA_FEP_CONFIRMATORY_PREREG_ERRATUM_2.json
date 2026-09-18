@@ -1,0 +1,18 @@
+{
+  "document": "V07_KAPPA_FEP_CONFIRMATORY_PREREG_ERRATUM_2",
+  "scope": "source-decoder metadata binding only",
+  "discovered_after": "Run 35016453053 reached source decoding but before any kappa/operator result was computed",
+  "observed_failure": "BrainVision decoder exposed generic channel labels EEG001..EEG064 while the preregistered fixed RepOD-matched sensor names were absent from raw.ch_names",
+  "authoritative_mapping_source": {
+    "repository": "nemarDatasets/on003944",
+    "frozen_commit": "0831487239218bc9daef1cc43d91d07b0c7d153d",
+    "bids_channels_tsv_blob_sha1": "2d82b42319011eb1358e1413eab348307271e6f5",
+    "rule": "Bind decoded channels positionally to the ordered rows of the frozen BIDS *_channels.tsv before selecting the already-preregistered 19 sensors."
+  },
+  "invariants": [
+    "Original downloaded BrainVision source bytes and their frozen identities remain unchanged.",
+    "The 19 preregistered RepOD-matched sensors and canonical mapping remain unchanged.",
+    "The 12 windows per subject, 2048-sample window size, 19->10->5->3->2->1 hierarchy, primary kappa endpoint, directional Psychosis < Control hypothesis, one-sided Mann-Whitney test, alpha=0.05, cohort and exclusions remain unchanged.",
+    "No ds003944 kappa, PLV, Q, chi, stability or group-level result was available when this erratum was frozen."
+  ]
+}

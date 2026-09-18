@@ -1,0 +1,108 @@
+{
+  "schema": "meegread.v07.kappa-independent-clinical-confirmatory.v1",
+  "validation_id": "v07-kappa-ds003944-fep-control-nonA-confirmatory",
+  "status": "FROZEN_BEFORE_ANY_DS003944_OPERATOR_RESULT",
+  "hypothesis_origin": "The RepOD schizophrenia/control study preregistered kappa slope as a secondary endpoint and subsequently observed a more-negative kappa scale slope in the schizophrenia group. This new dataset is independent and is used to test that directional hypothesis confirmatorily; no ds003944 v0.7 outcome has been inspected before this preregistration.",
+  "source": {
+    "provider": "NEMAR/OpenNeuro",
+    "nemar_dataset": "on003944",
+    "openneuro_dataset": "ds003944",
+    "nemar_version": "v1.0.0",
+    "openneuro_doi": "10.18112/openneuro.ds003944.v1.0.1",
+    "nemar_doi": "10.82901/nemar.on003944",
+    "license": "CC0",
+    "frozen_metadata_repository": "nemarDatasets/on003944",
+    "frozen_metadata_commit": "0831487239218bc9daef1cc43d91d07b0c7d153d",
+    "participants_tsv_blob_sha1": "f83c8861f7f4ab397e08ed86a6fff4e9c79f28b3",
+    "cohort_rule": "Use every participant in the frozen participants.tsv whose participant_id does not end in 'A' and whose type is exactly Control or Psychosis. The ten A-suffix recordings are excluded before outcomes because the dataset README states that they come from the second acquisition and are included in Task 1; exclusion preserves the second acquisition for a later independent replication.",
+    "expected_confirmatory_cohort": {
+      "total": 72,
+      "Control": 28,
+      "Psychosis": 44
+    },
+    "condition": "5-minute resting EEG",
+    "documented_sample_rate_hz": 1000.0,
+    "raw_format": "BrainVision (.vhdr plus .eeg)",
+    "raw_path_rule": "{participant_id}/eeg/{participant_id}_task-Rest_eeg.{vhdr|eeg}",
+    "data_identity_rule": "For each raw file, obtain the git-annex MD5E pointer from the frozen NEMAR metadata commit, parse its declared byte size and MD5, download the corresponding bytes from the pinned NEMAR v1.0.0 path, and reject before analysis unless both size and MD5 match."
+  },
+  "sensor_matching": {
+    "purpose": "Replicate the RepOD kappa result on the same 19-sensor geometry rather than selecting channels from ds003944 by outcome.",
+    "repod_to_ds003944_fixed_mapping": {
+      "Fp1": "FP1",
+      "Fp2": "FP2",
+      "F7": "F7",
+      "F3": "F3",
+      "Fz": "Fz",
+      "F4": "F4",
+      "F8": "F8",
+      "T3": "T7",
+      "C3": "C3",
+      "Cz": "Cz",
+      "C4": "C4",
+      "T4": "T8",
+      "T5": "P7",
+      "P3": "P3",
+      "Pz": "Pz",
+      "P4": "P4",
+      "T6": "P8",
+      "O1": "O1",
+      "O2": "O2"
+    },
+    "selection_rule": "Use exactly these 19 EEG channels in the listed RepOD order. No other channel may enter the confirmatory operator and no mapped channel may be replaced after outcomes are observed.",
+    "scale_node_counts": [19, 10, 5, 3, 2, 1]
+  },
+  "frozen_operator": {
+    "base_commit": "a2655346b592264ce6a98b11cc1593630a5f31a7",
+    "engine_version": "coupling-field-v0.7-adapter-1.0",
+    "engine_blob_sha1": "be472fb4939d723dc4133f3652a8deabee470a04",
+    "signal_engine_blob_sha1": "e6f25721ad18be07666bf38de4921de6ee914a21",
+    "python_oracle_blob_sha1": "2cd26cf925a8d85970fb9dabaeb3a3c8d4409679",
+    "algorithm_fingerprint_sha256": "489b4dcd4dbeb167bc7309b2483bbf7e48e19fb8356bcc9831f97d7ce4acaa8a",
+    "sample_rate_hz": 1000.0,
+    "window_samples": 2048,
+    "filter_hz": [1.0, 40.0],
+    "hilbert_kernel_radius": 31,
+    "nmi_bins": 8,
+    "var_order": 1,
+    "var_ridge": 0.001,
+    "gelfand_iterations": 80,
+    "coarse_grain": "deterministic greedy descending PLV*NMI",
+    "operational_space": "SENSOR_SPACE_PROXY"
+  },
+  "windowing": {
+    "windows_per_subject": 12,
+    "window_length_samples": 2048,
+    "start_index_rule": "For recording length N after loading the fixed 19 channels, window k=0..11 starts at floor(k*(N-2048)/11).",
+    "finite_policy": "Replace non-finite values inside a selected window with 0.0 before the unchanged operator runs.",
+    "subject_aggregation": "Compute the endpoint independently in each window and use the median of the 12 window endpoint values as the subject score. The person, never the window, is the unit of inference."
+  },
+  "primary_endpoint": {
+    "name": "median_multiscale_kappa_slope",
+    "per_window_metric": "OLS slope of v0.7 kappa versus scale level over the five nonterminal RepOD-matched scales with node counts [19,10,5,3,2]. The n=1 terminal scale is excluded.",
+    "subject_score": "median of the 12 per-window kappa slopes",
+    "directional_hypothesis": "Psychosis subject scores are lower (more negative) than Control subject scores, matching the direction observed in the preregistered RepOD secondary endpoint.",
+    "group_test": "Mann-Whitney U, one-sided alternative Psychosis < Control, using subject scores only.",
+    "effect_size": "AUC = P(random Psychosis score > random Control score), reported with direction preserved; values below 0.5 correspond to the preregistered lower-in-Psychosis direction.",
+    "alpha": 0.05
+  },
+  "secondary_predeclared_endpoints": [
+    "subject median of per-window meanPhaseLocking slope across nonterminal scales",
+    "subject median of per-window log(couplingLossQ) slope across nonterminal scales",
+    "subject median of per-window chi_dyn slope across nonterminal scales",
+    "subject median of per-window VAR-stability slope across nonterminal scales"
+  ],
+  "parity_gate": {
+    "input_transport": "Python loads the verified BrainVision bytes and exports one preregistered 2048-sample parity window containing exactly the fixed 19 channels. Kotlin test code constructs a MeegRecording from that exported window without altering samples.",
+    "comparison": "For every subject, the preregistered parity window must match the independent Python oracle for every scale metric and every pair metric.",
+    "floating_tolerance": "max(1e-9,1e-8*max(1,abs(expected)))"
+  },
+  "guardrails": [
+    "No ds003944 v0.7 result may be inspected before this preregistration is committed.",
+    "No subject, group label, channel, mapping, window, scale level, preprocessing parameter, endpoint direction, threshold, or tolerance may change after outcomes are observed.",
+    "The primary metric is kappa because it was generated as a secondary hypothesis in RepOD; PLV may not replace it if PLV performs better here.",
+    "A positive result would independently replicate one psychosis-group multiscale EEG association; it would not establish diagnosis, disease specificity, causality, source localization, universality, or a physical law.",
+    "A negative result is retained unchanged and counts against generalization of the RepOD kappa observation.",
+    "Sensor-space research output only."
+  ]
+}
