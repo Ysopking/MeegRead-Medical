@@ -283,12 +283,32 @@ def paired_summary(rows: List[dict], key: str) -> dict:
 
 def aggregate_command(args) -> None:
     root = Path(args.root)
+    expected = [str(i) for i in range(11)]
+
+    status_files = sorted(root.rglob("status.json"))
+    statuses = [json.loads(p.read_text(encoding="utf-8")) for p in status_files]
+    status_by_participant = {str(s["participant"]): s for s in statuses}
+    if sorted(status_by_participant, key=int) != expected:
+        raise ValueError(
+            "Expected one frozen analyzability status for every preregistered pilot participant 0..10; "
+            f"found {sorted(status_by_participant, key=int)}"
+        )
+
     files = sorted(root.rglob("subject.json"))
     rows = [json.loads(p.read_text(encoding="utf-8")) for p in files]
-    expected = [str(i) for i in range(11)]
-    found = sorted([str(r["participant"]) for r in rows], key=int)
-    if found != expected:
-        raise ValueError(f"Expected all 11 preregistered pilot participants 0..10; found {found}")
+    row_by_participant = {str(r["participant"]): r for r in rows}
+    analyzable_ids = sorted(
+        [pid for pid, s in status_by_participant.items() if bool(s.get("analyzable"))],
+        key=int,
+    )
+    if sorted(row_by_participant, key=int) != analyzable_ids:
+        raise ValueError(
+            "ANALYZABLE status and subject.json set disagree: "
+            f"statuses={analyzable_ids}, subject_rows={sorted(row_by_participant, key=int)}"
+        )
+    rows = [row_by_participant[pid] for pid in analyzable_ids]
+    if len(rows) < 2:
+        raise ValueError(f"Too few analyzable preregistered pairs for paired inference: {len(rows)}")
 
     baseline = np.asarray([r["baseline"]["sustainedLastMinuteRawLoad"] for r in rows], dtype=float)
     cognitive = np.asarray([r["cognitive_load"]["sustainedLastMinuteRawLoad"] for r in rows], dtype=float)
@@ -306,9 +326,20 @@ def aggregate_command(args) -> None:
             "lastMinuteMedianEFlow","meanFaa","finalOmegaRatio"
         ]
     }
+    not_analyzable = [
+        {
+            "participant": pid,
+            "reason": str(status_by_participant[pid].get("reason", "unspecified")),
+        }
+        for pid in expected
+        if not bool(status_by_participant[pid].get("analyzable"))
+    ]
     summary = {
         "validation_id": VALIDATION_ID,
-        "n_participants": len(rows),
+        "n_preregistered": len(expected),
+        "n_analyzable": len(rows),
+        "analyzable_participants": analyzable_ids,
+        "not_analyzable": not_analyzable,
         "alpha": 0.05,
         "primary_endpoint": "median wRaw across points with timeSeconds >= 120 s in matched 180 s recordings",
         "primary": {
@@ -325,21 +356,33 @@ def aggregate_command(args) -> None:
             "cognitive_load_count": int(sum(bool(r["cognitive_load"]["omegaBreach"]) for r in rows)),
             "note": "Descriptive only; WF02 does not validate OMEGA_KRIT=5800."
         },
-        "guardrail": "WF02 tests one paired cognitive-load prediction of the frozen research-load model only; pressureProxy and OMEGA_KRIT remain unvalidated research proxy/parameter.",
+        "guardrail": (
+            "Primary inference uses every preregistered participant pair that passes the frozen source-identity "
+            "and analyzability gates. NOT_ANALYZABLE participants remain explicit and are never replaced. "
+            "WF02 tests one paired cognitive-load prediction only; pressureProxy and OMEGA_KRIT remain "
+            "unvalidated research proxy/parameter."
+        ),
     }
     out = Path(args.out_dir)
     out.mkdir(parents=True, exist_ok=True)
     (out / "group.json").write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     with (out / "subjects.csv").open("w", encoding="utf-8", newline="") as f:
         writer = csv.writer(f)
-        writer.writerow(["participant","baseline_sustained_W","cognitive_load_sustained_W","delta_sustained_W"])
-        for r in sorted(rows, key=lambda x: int(x["participant"])):
-            writer.writerow([
-                r["participant"],
-                r["baseline"]["sustainedLastMinuteRawLoad"],
-                r["cognitive_load"]["sustainedLastMinuteRawLoad"],
-                r["delta_sustained_W"],
-            ])
+        writer.writerow(["participant","status","reason","baseline_sustained_W","cognitive_load_sustained_W","delta_sustained_W"])
+        for pid in expected:
+            status = status_by_participant[pid]
+            if bool(status.get("analyzable")):
+                r = row_by_participant[pid]
+                writer.writerow([
+                    pid,
+                    "ANALYZABLE",
+                    "",
+                    r["baseline"]["sustainedLastMinuteRawLoad"],
+                    r["cognitive_load"]["sustainedLastMinuteRawLoad"],
+                    r["delta_sustained_W"],
+                ])
+            else:
+                writer.writerow([pid, "NOT_ANALYZABLE", status.get("reason", "unspecified"), "", "", ""])
     print(json.dumps(summary, sort_keys=True))
 
 
