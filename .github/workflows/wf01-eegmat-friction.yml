@@ -1,5 +1,9 @@
 name: WF01 EEGMAT Mental-Arithmetic Friction Confirmation
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 on:
   pull_request:
     branches: [main]
