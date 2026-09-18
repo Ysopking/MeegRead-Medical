@@ -1,0 +1,35 @@
+{
+  "schema": "meegread.wf02.erratum.v1",
+  "validation_id": "wf02-cogwear-pilot-stroop-vs-baseline-load-confirmatory",
+  "erratum_number": 2,
+  "status": "FROZEN_BEFORE_ANY_GROUP_INFERENCE_AND_BEFORE_ANY_PARTICIPANT_3_OPERATOR_RESULT",
+  "observed_failure": {
+    "workflow_run": 35376033630,
+    "exact_head": "6c2581bcc60f97a94d3ac7032ff3c0472b9349b0",
+    "job_id": 105700821442,
+    "participant": "3",
+    "failing_step": "Download exact frozen CogWear pair",
+    "failure_class": "source-identity/analyzability gate",
+    "evidence": "The versioned PhysioNet SHA256 manifest resolver returned no complete verified baseline+cognitive_load pair for participant 3, so the job stopped before either source file pair was accepted.",
+    "result_exposure": "Participant 3 produced no Python-oracle result, no Kotlin result, no parity result, and no endpoint value. No WF02 group statistic has been computed or inspected. Completed participants' endpoint values have not been inspected."
+  },
+  "preregistration_alignment": {
+    "frozen_rule": "A pair is analyzable only if both verified source files satisfy the frozen input mapping. Any NOT_ANALYZABLE participant and exact reason are retained in the group artifact. Primary inference uses all analyzable preregistered participant pairs.",
+    "implementation_gap": "The first implementation hard-failed the matrix job when a checksum-manifest entry was unavailable and the aggregate code incorrectly required 11 subject.json files, preventing the preregistered NOT_ANALYZABLE path from being represented.",
+    "correction": "Implement the already-frozen NOT_ANALYZABLE path. A participant lacking either verified checksum-manifest source identity is retained as NOT_ANALYZABLE with exact reason; no substitute recording or window is used. Aggregate inference requires a status artifact for every preregistered id 0..10 and uses only ANALYZABLE matched pairs."
+  },
+  "unchanged": [
+    "participant universe remains frozen ids 0..10",
+    "no participant can be excluded based on any MMSI/load outcome",
+    "baseline and cognitive_load source path templates",
+    "exact SHA-256 requirement for every analyzed source file",
+    "first 180 s matched input window",
+    "AF7/AF8/TP9/TP10 mapping and 256 Hz sample rate",
+    "mmsi-load-research-v1.2 engine, recovery tau, OMEGA model parameter and all numerical equations",
+    "primary endpoint, directional hypothesis, paired Wilcoxon specification and alpha",
+    "secondary endpoints",
+    "Kotlin/Python parity tolerance",
+    "interpretation guardrails"
+  ],
+  "scientific_guardrail": "This erratum implements a missing-data/analyzability rule already frozen before outcomes. It does not permit replacement data, alternate windows, outcome-driven deletion, parameter tuning, endpoint tuning, or direction/test changes."
+}

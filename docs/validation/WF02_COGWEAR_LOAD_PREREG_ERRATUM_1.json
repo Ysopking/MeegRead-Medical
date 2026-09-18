@@ -1,0 +1,32 @@
+{
+  "schema": "meegread.wf02.erratum.v1",
+  "validation_id": "wf02-cogwear-pilot-stroop-vs-baseline-load-confirmatory",
+  "erratum_number": 1,
+  "status": "FROZEN_BEFORE_ANY_WF02_OPERATOR_OR_GROUP_RESULT",
+  "observed_failure": {
+    "workflow_run": 35375479106,
+    "job_id": 105699040501,
+    "participant": "3",
+    "failing_step": "Download exact frozen CogWear pair",
+    "failure_class": "transport/checksum-manifest resolver",
+    "result_exposure": "No Python oracle, Kotlin operator result, parity result, participant endpoint, or aggregate group result was produced or inspected before this erratum."
+  },
+  "cause": "The workflow required the SHA256SUMS filename to equal the preregistered relative path exactly as awk field $2. PhysioNet checksum manifests may decorate the filename field while still containing the exact relative path; the repository's pre-existing CogWear validation resolves checksums by matching the exact path as a literal substring and then reading the first checksum field.",
+  "correction": {
+    "old_rule": "awk -v p=\"$path\" '$2==p {print $1; exit}' SHA256SUMS.txt",
+    "new_rule": "grep -F \"$path\" SHA256SUMS.txt | head -n 1, require one non-empty line, then read the first whitespace-delimited field as SHA-256.",
+    "integrity_rule": "The downloaded source file is still rejected unless its locally computed SHA-256 exactly equals that resolved 64-hex digest."
+  },
+  "unchanged": [
+    "PhysioNet dataset/version and participant cohort 0..10",
+    "baseline and cognitive_load source paths",
+    "first 180 s matched input window",
+    "AF7/AF8/TP9/TP10 mapping",
+    "mmsi-load-research-v1.2 and all engine/math blob identities",
+    "Python oracle numerical implementation",
+    "primary endpoint, direction, paired Wilcoxon test and alpha",
+    "secondary endpoints and interpretation guardrails",
+    "Kotlin/Python parity tolerance"
+  ],
+  "scientific_guardrail": "This is a source-identity transport correction only. It does not alter any scientific observable, parameter, cohort, hypothesis, endpoint, test or threshold."
+}

@@ -1,0 +1,221 @@
+name: WF02 CogWear Thermodynamic Load Confirmation
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'docs/validation/WF02_COGWEAR_LOAD_PREREG.json'
+      - 'docs/validation/WF02_COGWEAR_LOAD_PREREG_ERRATUM_1.json'
+      - 'docs/validation/WF02_COGWEAR_LOAD_PREREG_ERRATUM_2.json'
+      - 'tools/validation/wf02_cogwear_load.py'
+      - 'app/src/test/java/de/meegread/app/analysis/ThermodynamicLoadCogWearParityTest.kt'
+      - 'app/src/main/java/de/meegread/app/analysis/ExperimentalLoadEngine.kt'
+      - 'app/src/main/java/de/meegread/app/analysis/LoadMath.kt'
+      - 'app/src/main/java/de/meegread/app/analysis/SignalAnalysisEngine.kt'
+      - 'app/src/main/java/de/meegread/app/analysis/FastFourierTransform.kt'
+      - '.github/workflows/wf02-cogwear-load.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  participant-confirmation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      max-parallel: 6
+      matrix:
+        participant: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    env:
+      PREREG_BLOB_SHA1: 72ecfc8bfa22643fa243521a60b177f41c114296
+      ERRATUM_1_BLOB_SHA1: 12b7c29c8519a77da2d55c66df696f20f20147c8
+      ERRATUM_2_BLOB_SHA1: fd8a08cf302d5055a8d3f1afcd9ec2e56a2d2418
+      LOAD_ENGINE_BLOB_SHA1: 1a600d44f2fccbe304efd8597d8b4791f7a2b518
+      LOAD_MATH_BLOB_SHA1: 4496ad4f5b7bab4a01d61942296416451fea18a3
+      SIGNAL_ENGINE_BLOB_SHA1: e6f25721ad18be07666bf38de4921de6ee914a21
+      FFT_BLOB_SHA1: e2f8969bbd4b588ac409061970d1e9f20e00c984
+      ORACLE_BLOB_SHA1: 6eb4cdefc3a2d8e15ecd18b7b1bb726979842b23
+      PARITY_TEST_BLOB_SHA1: 5a8cc89b8de992ce877427d177c8e848dfb43fb1
+      PHYSIONET_BASE: https://physionet.org/files/consumer-grade-wearables/1.0.0
+      WF02_COGWEAR_LOAD: 'true'
+      WF02_COGWEAR_PARTICIPANT: ${{ matrix.participant }}
+      WF02_ROOT: ${{ github.workspace }}/build/wf02-cogwear/${{ matrix.participant }}
+      WF02_COGWEAR_BASELINE: ${{ github.workspace }}/build/wf02-cogwear/${{ matrix.participant }}/baseline_muse_eeg.csv
+      WF02_COGWEAR_COGNITIVE: ${{ github.workspace }}/build/wf02-cogwear/${{ matrix.participant }}/cognitive_load_muse_eeg.csv
+      WF02_COGWEAR_REFERENCE_DIR: ${{ github.workspace }}/build/wf02-cogwear/${{ matrix.participant }}/reference
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Verify frozen preregistration and implementation identities
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git hash-object docs/validation/WF02_COGWEAR_LOAD_PREREG.json)" = "$PREREG_BLOB_SHA1"
+          test "$(git hash-object docs/validation/WF02_COGWEAR_LOAD_PREREG_ERRATUM_1.json)" = "$ERRATUM_1_BLOB_SHA1"
+          test "$(git hash-object docs/validation/WF02_COGWEAR_LOAD_PREREG_ERRATUM_2.json)" = "$ERRATUM_2_BLOB_SHA1"
+          test "$(git hash-object app/src/main/java/de/meegread/app/analysis/ExperimentalLoadEngine.kt)" = "$LOAD_ENGINE_BLOB_SHA1"
+          test "$(git hash-object app/src/main/java/de/meegread/app/analysis/LoadMath.kt)" = "$LOAD_MATH_BLOB_SHA1"
+          test "$(git hash-object app/src/main/java/de/meegread/app/analysis/SignalAnalysisEngine.kt)" = "$SIGNAL_ENGINE_BLOB_SHA1"
+          test "$(git hash-object app/src/main/java/de/meegread/app/analysis/FastFourierTransform.kt)" = "$FFT_BLOB_SHA1"
+          test "$(git hash-object tools/validation/wf02_cogwear_load.py)" = "$ORACLE_BLOB_SHA1"
+          test "$(git hash-object app/src/test/java/de/meegread/app/analysis/ThermodynamicLoadCogWearParityTest.kt)" = "$PARITY_TEST_BLOB_SHA1"
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+
+      - name: Install frozen Python dependencies
+        run: python -m pip install --disable-pip-version-check numpy==2.2.6 scipy==1.15.3
+
+      - name: Download exact frozen CogWear pair
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$WF02_ROOT" "$WF02_COGWEAR_REFERENCE_DIR"
+          curl --fail --location --retry 3 --retry-delay 2 "$PHYSIONET_BASE/SHA256SUMS.txt" -o "$WF02_ROOT/SHA256SUMS.txt"
+
+          baseline_path="pilot/${WF02_COGWEAR_PARTICIPANT}/baseline/muse_eeg.csv"
+          cognitive_path="pilot/${WF02_COGWEAR_PARTICIPANT}/cognitive_load/muse_eeg.csv"
+
+          baseline_line="$(grep -F "$baseline_path" "$WF02_ROOT/SHA256SUMS.txt" | head -n 1 || true)"
+          cognitive_line="$(grep -F "$cognitive_path" "$WF02_ROOT/SHA256SUMS.txt" | head -n 1 || true)"
+
+          if [[ -z "$baseline_line" || -z "$cognitive_line" ]]; then
+            missing=()
+            [[ -z "$baseline_line" ]] && missing+=("$baseline_path")
+            [[ -z "$cognitive_line" ]] && missing+=("$cognitive_path")
+            reason="missing verified PhysioNet SHA256SUMS entry: ${missing[*]}"
+            printf '{"participant":"%s","analyzable":false,"reason":"%s"}\n' \
+              "$WF02_COGWEAR_PARTICIPANT" "$reason" > "$WF02_ROOT/status.json"
+            echo "WF02_SOURCE_ANALYZABLE=false" >> "$GITHUB_ENV"
+            echo "WF02 NOT_ANALYZABLE: $reason"
+            exit 0
+          fi
+
+          baseline_expected="$(printf '%s\n' "$baseline_line" | awk '{print $1}')"
+          cognitive_expected="$(printf '%s\n' "$cognitive_line" | awk '{print $1}')"
+          test "${#baseline_expected}" -eq 64
+          test "${#cognitive_expected}" -eq 64
+
+          curl --fail --location --retry 3 --retry-delay 2 "$PHYSIONET_BASE/$baseline_path" -o "$WF02_COGWEAR_BASELINE"
+          curl --fail --location --retry 3 --retry-delay 2 "$PHYSIONET_BASE/$cognitive_path" -o "$WF02_COGWEAR_COGNITIVE"
+
+          baseline_actual="$(sha256sum "$WF02_COGWEAR_BASELINE" | awk '{print $1}')"
+          cognitive_actual="$(sha256sum "$WF02_COGWEAR_COGNITIVE" | awk '{print $1}')"
+          test "$baseline_actual" = "$baseline_expected"
+          test "$cognitive_actual" = "$cognitive_expected"
+
+          echo "WF02_BASELINE_SHA256=$baseline_actual" >> "$GITHUB_ENV"
+          echo "WF02_COGNITIVE_SHA256=$cognitive_actual" >> "$GITHUB_ENV"
+          echo "WF02_SOURCE_ANALYZABLE=true" >> "$GITHUB_ENV"
+
+      - name: Generate independent frozen Python oracle
+        if: env.WF02_SOURCE_ANALYZABLE == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          python tools/validation/wf02_cogwear_load.py subject \
+            --baseline "$WF02_COGWEAR_BASELINE" \
+            --cognitive-load "$WF02_COGWEAR_COGNITIVE" \
+            --baseline-sha256 "$WF02_BASELINE_SHA256" \
+            --cognitive-load-sha256 "$WF02_COGNITIVE_SHA256" \
+            --participant "$WF02_COGWEAR_PARTICIPANT" \
+            --out-dir "$WF02_COGWEAR_REFERENCE_DIR"
+
+      - name: Record analyzable status
+        if: env.WF02_SOURCE_ANALYZABLE == 'true'
+        shell: bash
+        run: |
+          printf '{"participant":"%s","analyzable":true,"reason":""}\n' \
+            "$WF02_COGWEAR_PARTICIPANT" > "$WF02_ROOT/status.json"
+
+      - name: Set up JDK 17
+        if: env.WF02_SOURCE_ANALYZABLE == 'true'
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        if: env.WF02_SOURCE_ANALYZABLE == 'true'
+        uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+
+      - name: Install Android platform
+        if: env.WF02_SOURCE_ANALYZABLE == 'true'
+        run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Set up Gradle 9.6
+        if: env.WF02_SOURCE_ANALYZABLE == 'true'
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.6.0'
+
+      - name: Kotlin vs Python full WF02 load parity
+        if: env.WF02_SOURCE_ANALYZABLE == 'true'
+        run: gradle :app:testDebugUnitTest --tests 'de.meegread.app.analysis.ThermodynamicLoadCogWearParityTest' --no-daemon --stacktrace
+
+      - name: Upload participant reproducibility bundle
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wf02-cogwear-participant-${{ matrix.participant }}
+          path: |
+            ${{ env.WF02_ROOT }}/status.json
+            ${{ env.WF02_COGWEAR_REFERENCE_DIR }}/
+            app/build/test-results/testDebugUnitTest/
+          if-no-files-found: warn
+
+  aggregate-confirmatory:
+    needs: participant-confirmation
+    runs-on: ubuntu-latest
+    if: always() && needs.participant-confirmation.result == 'success'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Verify frozen inference identities
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git hash-object docs/validation/WF02_COGWEAR_LOAD_PREREG.json)" = "72ecfc8bfa22643fa243521a60b177f41c114296"
+          test "$(git hash-object docs/validation/WF02_COGWEAR_LOAD_PREREG_ERRATUM_1.json)" = "12b7c29c8519a77da2d55c66df696f20f20147c8"
+          test "$(git hash-object docs/validation/WF02_COGWEAR_LOAD_PREREG_ERRATUM_2.json)" = "fd8a08cf302d5055a8d3f1afcd9ec2e56a2d2418"
+          test "$(git hash-object tools/validation/wf02_cogwear_load.py)" = "6eb4cdefc3a2d8e15ecd18b7b1bb726979842b23"
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+
+      - name: Install frozen inference dependencies
+        run: python -m pip install --disable-pip-version-check numpy==2.2.6 scipy==1.15.3
+
+      - name: Download all frozen participant artifacts
+        uses: actions/download-artifact@v5
+        with:
+          pattern: wf02-cogwear-participant-*
+          path: build/wf02-cogwear/participants
+          merge-multiple: false
+
+      - name: Run preregistered paired sustained-load test
+        run: |
+          python tools/validation/wf02_cogwear_load.py aggregate \
+            --root build/wf02-cogwear/participants \
+            --out-dir build/wf02-cogwear/group
+
+      - name: Upload WF02 group result
+        uses: actions/upload-artifact@v4
+        with:
+          name: wf02-cogwear-load-group
+          path: build/wf02-cogwear/group/

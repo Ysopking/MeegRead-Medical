@@ -1,5 +1,9 @@
 name: v0.7 SRM Independent Dataset Dual-Null Replication
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 on:
   pull_request:
     branches: [main]
