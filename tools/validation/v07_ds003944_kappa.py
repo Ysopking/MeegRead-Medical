@@ -20,7 +20,7 @@ from typing import Dict, List, Sequence
 import mne
 import v07_reference as core
 
-ADAPTER_VERSION = "python-v07-ds003944-kappa-confirmatory-1.0.3"
+ADAPTER_VERSION = "python-v07-ds003944-kappa-confirmatory-1.0.4"
 CHANNELS_TSV_BLOB_SHA1 = "2d82b42319011eb1358e1413eab348307271e6f5"
 EXPECTED_SAMPLE_RATE_HZ = 1000.0
 WINDOW_SAMPLES = 2048
@@ -115,7 +115,7 @@ def load_fixed_channels(vhdr_path: str, channels_tsv_path: str) -> tuple[Dict[st
     if hashlib.sha1(git_blob_payload).hexdigest() != CHANNELS_TSV_BLOB_SHA1:
         raise ValueError(f"Unexpected frozen channels.tsv identity: {channels_tsv}")
     with channels_tsv.open("r", encoding="utf-8", newline="") as f:
-        bids_names = [row["name"] for row in csv.DictReader(f, delimiter="\\t")]
+        bids_names = [row["name"] for row in csv.DictReader(f, delimiter="\t")]
     if len(bids_names) != len(raw.ch_names):
         raise ValueError(f"Channel-count mismatch: metadata={len(bids_names)} decoded={len(raw.ch_names)}")
     if raw.ch_names == [f"EEG{i:03d}" for i in range(1, len(raw.ch_names) + 1)]:
