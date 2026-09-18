@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'docs/validation/WF02_COGWEAR_LOAD_PREREG.json'
+      - 'docs/validation/WF02_COGWEAR_LOAD_PREREG_ERRATUM_1.json'
       - 'tools/validation/wf02_cogwear_load.py'
       - 'app/src/test/java/de/meegread/app/analysis/ThermodynamicLoadCogWearParityTest.kt'
       - 'app/src/main/java/de/meegread/app/analysis/ExperimentalLoadEngine.kt'
@@ -28,6 +29,7 @@ jobs:
         participant: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
     env:
       PREREG_BLOB_SHA1: 72ecfc8bfa22643fa243521a60b177f41c114296
+      ERRATUM_1_BLOB_SHA1: 12b7c29c8519a77da2d55c66df696f20f20147c8
       LOAD_ENGINE_BLOB_SHA1: 1a600d44f2fccbe304efd8597d8b4791f7a2b518
       LOAD_MATH_BLOB_SHA1: 4496ad4f5b7bab4a01d61942296416451fea18a3
       SIGNAL_ENGINE_BLOB_SHA1: e6f25721ad18be07666bf38de4921de6ee914a21
@@ -51,6 +53,7 @@ jobs:
         run: |
           set -euo pipefail
           test "$(git hash-object docs/validation/WF02_COGWEAR_LOAD_PREREG.json)" = "$PREREG_BLOB_SHA1"
+          test "$(git hash-object docs/validation/WF02_COGWEAR_LOAD_PREREG_ERRATUM_1.json)" = "$ERRATUM_1_BLOB_SHA1"
           test "$(git hash-object app/src/main/java/de/meegread/app/analysis/ExperimentalLoadEngine.kt)" = "$LOAD_ENGINE_BLOB_SHA1"
           test "$(git hash-object app/src/main/java/de/meegread/app/analysis/LoadMath.kt)" = "$LOAD_MATH_BLOB_SHA1"
           test "$(git hash-object app/src/main/java/de/meegread/app/analysis/SignalAnalysisEngine.kt)" = "$SIGNAL_ENGINE_BLOB_SHA1"
@@ -76,8 +79,12 @@ jobs:
           baseline_path="pilot/${WF02_COGWEAR_PARTICIPANT}/baseline/muse_eeg.csv"
           cognitive_path="pilot/${WF02_COGWEAR_PARTICIPANT}/cognitive_load/muse_eeg.csv"
 
-          baseline_expected="$(awk -v p="$baseline_path" '$2==p {print $1; exit}' "$WF02_ROOT/SHA256SUMS.txt")"
-          cognitive_expected="$(awk -v p="$cognitive_path" '$2==p {print $1; exit}' "$WF02_ROOT/SHA256SUMS.txt")"
+          baseline_line="$(grep -F "$baseline_path" "$WF02_ROOT/SHA256SUMS.txt" | head -n 1)"
+          cognitive_line="$(grep -F "$cognitive_path" "$WF02_ROOT/SHA256SUMS.txt" | head -n 1)"
+          test -n "$baseline_line"
+          test -n "$cognitive_line"
+          baseline_expected="$(printf '%s\n' "$baseline_line" | awk '{print $1}')"
+          cognitive_expected="$(printf '%s\n' "$cognitive_line" | awk '{print $1}')"
           test "${#baseline_expected}" -eq 64
           test "${#cognitive_expected}" -eq 64
 
@@ -149,6 +156,7 @@ jobs:
         run: |
           set -euo pipefail
           test "$(git hash-object docs/validation/WF02_COGWEAR_LOAD_PREREG.json)" = "72ecfc8bfa22643fa243521a60b177f41c114296"
+          test "$(git hash-object docs/validation/WF02_COGWEAR_LOAD_PREREG_ERRATUM_1.json)" = "12b7c29c8519a77da2d55c66df696f20f20147c8"
           test "$(git hash-object tools/validation/wf02_cogwear_load.py)" = "d3b6cc3c7e26fd8a74c28c4f86c73bd65b17a3e9"
 
       - name: Set up Python
