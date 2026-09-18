@@ -1,0 +1,174 @@
+name: WF01 EEGMAT Mental-Arithmetic Friction Confirmation
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'docs/validation/WF01_EEGMAT_FRICTION_PREREG.json'
+      - 'tools/validation/wf01_eegmat_friction.py'
+      - 'app/src/test/java/de/meegread/app/analysis/ResearchFriction19EegmatParityTest.kt'
+      - 'app/src/main/java/de/meegread/app/analysis/ResearchFriction19Engine.kt'
+      - 'app/src/main/java/de/meegread/app/analysis/SignalAnalysisEngine.kt'
+      - 'app/src/main/java/de/meegread/app/analysis/FastFourierTransform.kt'
+      - 'app/src/main/java/de/meegread/app/data/EdfBdfParser.kt'
+      - '.github/workflows/wf01-eegmat-friction.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  subject-confirmation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      max-parallel: 6
+      matrix:
+        subject: [Subject00, Subject01, Subject02, Subject03, Subject04, Subject05, Subject06, Subject07, Subject08, Subject09, Subject10, Subject11, Subject12, Subject13, Subject14, Subject15, Subject16, Subject17, Subject18, Subject19, Subject20, Subject21, Subject22, Subject23, Subject24, Subject25, Subject26, Subject27, Subject28, Subject29, Subject30, Subject31, Subject32, Subject33, Subject34, Subject35]
+    env:
+      PREREG_BLOB_SHA1: e985bcbc0ba09549dcb136df2155ca14d5370de0
+      RESEARCH_ENGINE_BLOB_SHA1: 74881820703956b9faa642fef1ea37064d777894
+      SIGNAL_ENGINE_BLOB_SHA1: e6f25721ad18be07666bf38de4921de6ee914a21
+      FFT_BLOB_SHA1: e2f8969bbd4b588ac409061970d1e9f20e00c984
+      EDF_PARSER_BLOB_SHA1: dfdb7520cb51cfa3e5088dac0ad773fb778719ae
+      ORACLE_BLOB_SHA1: 6add2f0b5e2cdf24c3d35f355651695fb9cf76ff
+      PARITY_TEST_BLOB_SHA1: a6b6859cfb31837b3c93722c187478bad8237663
+      PHYSIONET_BASE: https://physionet.org/files/eegmat/1.0.0
+      WF01_EEGMAT_CONFIRMATORY: 'true'
+      WF01_EEGMAT_SUBJECT: ${{ matrix.subject }}
+      WF01_EEGMAT_ROOT: ${{ github.workspace }}/build/wf01-eegmat/${{ matrix.subject }}
+      WF01_EEGMAT_REST_EDF: ${{ github.workspace }}/build/wf01-eegmat/${{ matrix.subject }}/${{ matrix.subject }}_1.edf
+      WF01_EEGMAT_TASK_EDF: ${{ github.workspace }}/build/wf01-eegmat/${{ matrix.subject }}/${{ matrix.subject }}_2.edf
+      WF01_EEGMAT_REFERENCE_DIR: ${{ github.workspace }}/build/wf01-eegmat/${{ matrix.subject }}/reference
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Verify frozen preregistration and implementation identities
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git hash-object docs/validation/WF01_EEGMAT_FRICTION_PREREG.json)" = "$PREREG_BLOB_SHA1"
+          test "$(git hash-object app/src/main/java/de/meegread/app/analysis/ResearchFriction19Engine.kt)" = "$RESEARCH_ENGINE_BLOB_SHA1"
+          test "$(git hash-object app/src/main/java/de/meegread/app/analysis/SignalAnalysisEngine.kt)" = "$SIGNAL_ENGINE_BLOB_SHA1"
+          test "$(git hash-object app/src/main/java/de/meegread/app/analysis/FastFourierTransform.kt)" = "$FFT_BLOB_SHA1"
+          test "$(git hash-object app/src/main/java/de/meegread/app/data/EdfBdfParser.kt)" = "$EDF_PARSER_BLOB_SHA1"
+          test "$(git hash-object tools/validation/wf01_eegmat_friction.py)" = "$ORACLE_BLOB_SHA1"
+          test "$(git hash-object app/src/test/java/de/meegread/app/analysis/ResearchFriction19EegmatParityTest.kt)" = "$PARITY_TEST_BLOB_SHA1"
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+
+      - name: Install frozen Python dependencies
+        run: python -m pip install --disable-pip-version-check numpy==2.2.6 scipy==1.15.3
+
+      - name: Download exact frozen EEGMAT pair
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$WF01_EEGMAT_ROOT" "$WF01_EEGMAT_REFERENCE_DIR"
+          curl --fail --location --retry 3 --retry-delay 2 "$PHYSIONET_BASE/SHA256SUMS.txt" -o "$WF01_EEGMAT_ROOT/SHA256SUMS.txt"
+          for suffix in 1 2; do
+            name="${WF01_EEGMAT_SUBJECT}_${suffix}.edf"
+            expected="$(awk -v p="$name" '$2==p {print $1; exit}' "$WF01_EEGMAT_ROOT/SHA256SUMS.txt")"
+            test "${#expected}" -eq 64
+            target="$WF01_EEGMAT_ROOT/$name"
+            curl --fail --location --retry 3 --retry-delay 2 "$PHYSIONET_BASE/$name" -o "$target"
+            actual="$(sha256sum "$target" | awk '{print $1}')"
+            test "$actual" = "$expected"
+            if [ "$suffix" = "1" ]; then
+              echo "WF01_REST_SHA256=$actual" >> "$GITHUB_ENV"
+            else
+              echo "WF01_TASK_SHA256=$actual" >> "$GITHUB_ENV"
+            fi
+          done
+
+      - name: Generate frozen Python oracle
+        shell: bash
+        run: |
+          set -euo pipefail
+          python tools/validation/wf01_eegmat_friction.py subject \
+            --rest "$WF01_EEGMAT_REST_EDF" \
+            --task "$WF01_EEGMAT_TASK_EDF" \
+            --rest-sha256 "$WF01_REST_SHA256" \
+            --task-sha256 "$WF01_TASK_SHA256" \
+            --subject "$WF01_EEGMAT_SUBJECT" \
+            --out-dir "$WF01_EEGMAT_REFERENCE_DIR"
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+
+      - name: Install Android platform
+        run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Set up Gradle 9.6
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.6.0'
+
+      - name: Kotlin vs Python full WF01 parity
+        run: gradle :app:testDebugUnitTest --tests 'de.meegread.app.analysis.ResearchFriction19EegmatParityTest' --no-daemon --stacktrace
+
+      - name: Upload subject reproducibility bundle
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wf01-eegmat-${{ matrix.subject }}
+          path: |
+            ${{ env.WF01_EEGMAT_REFERENCE_DIR }}/
+            app/build/test-results/testDebugUnitTest/
+          if-no-files-found: warn
+
+  aggregate-confirmatory:
+    needs: subject-confirmation
+    runs-on: ubuntu-latest
+    if: always() && needs.subject-confirmation.result == 'success'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Verify frozen inference identities
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git hash-object docs/validation/WF01_EEGMAT_FRICTION_PREREG.json)" = "e985bcbc0ba09549dcb136df2155ca14d5370de0"
+          test "$(git hash-object tools/validation/wf01_eegmat_friction.py)" = "6add2f0b5e2cdf24c3d35f355651695fb9cf76ff"
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+
+      - name: Install frozen inference dependencies
+        run: python -m pip install --disable-pip-version-check numpy==2.2.6 scipy==1.15.3
+
+      - name: Download all frozen subject artifacts
+        uses: actions/download-artifact@v5
+        with:
+          pattern: wf01-eegmat-Subject*
+          path: build/wf01-eegmat/subjects
+          merge-multiple: false
+
+      - name: Run preregistered paired W test
+        run: |
+          python tools/validation/wf01_eegmat_friction.py aggregate \
+            --root build/wf01-eegmat/subjects \
+            --out-dir build/wf01-eegmat/group
+
+      - name: Upload WF01 group result
+        uses: actions/upload-artifact@v4
+        with:
+          name: wf01-eegmat-friction-group
+          path: build/wf01-eegmat/group/
