@@ -20,7 +20,7 @@ from typing import Dict, List, Sequence
 import mne
 import v07_reference as core
 
-ADAPTER_VERSION = "python-v07-ds003944-kappa-confirmatory-1.0.5"
+ADAPTER_VERSION = "python-v07-ds003944-kappa-confirmatory-1.0.6"
 CHANNELS_TSV_BLOB_SHA1 = "2d82b42319011eb1358e1413eab348307271e6f5"
 EXPECTED_SAMPLE_RATE_HZ = 1000.0
 WINDOW_SAMPLES = 2048
@@ -120,7 +120,7 @@ def load_fixed_channels(vhdr_path: str, channels_tsv_path: str) -> tuple[Dict[st
         raise ValueError(f"Channel-count mismatch: metadata={len(bids_names)} decoded={len(raw.ch_names)}")
     generic_ordinals = []
     for expected_index, name in enumerate(raw.ch_names, start=1):
-        match = re.fullmatch(r"[A-Za-z]+(\\d{3})", name)
+        match = re.fullmatch(r"[A-Za-z]+(\d{3})", name)
         if match is None or int(match.group(1)) != expected_index:
             generic_ordinals = []
             break

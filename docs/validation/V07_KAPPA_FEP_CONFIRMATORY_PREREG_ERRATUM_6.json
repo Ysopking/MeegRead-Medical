@@ -1,0 +1,17 @@
+{
+  "document": "V07_KAPPA_FEP_CONFIRMATORY_PREREG_ERRATUM_6",
+  "scope": "generic-channel ordinal regex escaping only",
+  "discovered_after": "Run 35342260523 failed before aggregate inference; the failing subject jobs stopped in source-channel binding before fixed-channel analysis completed",
+  "observed_failure": "The adapter regex was serialized as r\"[A-Za-z]+(\\\\\\\\d{3})\" in Python source, which matches a literal backslash-d sequence instead of three digits. Therefore generic names such as EEG001 were not recognized and the already frozen BIDS positional binding was not applied.",
+  "correction": {
+    "rule": "Change only the regex escape from \\\\d{3} as a literal backslash-d match to the Python raw-regex digit class \\d{3}.",
+    "frozen_channels_tsv_blob_sha1": "2d82b42319011eb1358e1413eab348307271e6f5",
+    "frozen_nemar_commit": "0831487239218bc9daef1cc43d91d07b0c7d153d"
+  },
+  "invariants": [
+    "No source EEG bytes or BIDS metadata bytes are changed.",
+    "No channel order, BIDS positional mapping, or preregistered 19-sensor mapping is changed.",
+    "No windowing, hierarchy, kappa endpoint, directional hypothesis, cohort, exclusion rule, Mann-Whitney test or alpha is changed.",
+    "No aggregate group result existed when this correction was frozen."
+  ]
+}
