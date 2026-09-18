@@ -1,0 +1,164 @@
+{
+  "schema": "meegread.wf01.eegmat-friction-confirmatory.v1",
+  "validation_id": "wf01-eegmat-mental-arithmetic-friction-paired-confirmatory",
+  "status": "FROZEN_BEFORE_ANY_EEGMAT_MMSI_OUTCOME",
+  "purpose": "First post-ds003944 falsification-oriented test in the Weltformel/MMSI validation battery. This experiment tests one narrow directional prediction of the frozen 19-channel friction observable; it is not a test of physical universality.",
+  "hypothesis_origin": {
+    "model_document": "docs/MMSI_RESEARCH_METRIC_V1.md",
+    "model_version": "MMSI 19-channel research metric v1.0",
+    "frozen_interpretation": "W is the model's normalized friction/load ratio. A sustained mental-arithmetic task is preregistered to produce a higher subject-level W than matched pre-task resting EEG.",
+    "exclusions": [
+      "This experiment does not test OMEGA_KRIT=5800.",
+      "This experiment does not test mechanical vascular pressure, causal energy transfer, entropic gravity, diagnosis, or a universal physical law."
+    ]
+  },
+  "source": {
+    "provider": "PhysioNet",
+    "dataset": "EEG During Mental Arithmetic Tasks (EEGMAT)",
+    "version": "1.0.0",
+    "doi": "10.13026/C2JQ1P",
+    "publication_doi": "10.3390/data4010014",
+    "license": "Open Data Commons Attribution License v1.0",
+    "cohort_rule": "Use every complete Subject00 through Subject35 pair present in PhysioNet EEGMAT v1.0.0. No subject may be removed after MMSI outcomes are computed.",
+    "expected_subjects": 36,
+    "files": {
+      "rest": "SubjectXX_1.edf",
+      "arithmetic": "SubjectXX_2.edf"
+    },
+    "documented_conditions": {
+      "rest": "background EEG before mental arithmetic",
+      "arithmetic": "EEG during serial-subtraction mental arithmetic"
+    },
+    "documented_sample_rate_hz": 500,
+    "documented_eeg_montage": [
+      "Fp1",
+      "Fp2",
+      "F3",
+      "F4",
+      "Fz",
+      "F7",
+      "F8",
+      "C3",
+      "C4",
+      "Cz",
+      "P3",
+      "P4",
+      "Pz",
+      "O1",
+      "O2",
+      "T3",
+      "T4",
+      "T5",
+      "T6"
+    ],
+    "data_identity_rule": "Download SHA256SUMS.txt from the pinned PhysioNet v1.0.0 path. For each of the 72 EDF files, resolve the filename's published SHA-256 and reject the file before analysis unless local SHA-256 matches exactly."
+  },
+  "frozen_implementation": {
+    "base_commit": "6742947c97374cf3c6f1c6cd259f28c77d1705e6",
+    "research_engine_version": "friction19-research-v1.0",
+    "research_engine_blob_sha1": "74881820703956b9faa642fef1ea37064d777894",
+    "signal_engine_blob_sha1": "e6f25721ad18be07666bf38de4921de6ee914a21",
+    "edf_parser_blob_sha1": "dfdb7520cb51cfa3e5088dac0ad773fb778719ae",
+    "hc_raw_median": 0.7597781027727232,
+    "epsilon": 0.000001,
+    "bands_hz": {
+      "delta": [
+        0.5,
+        4
+      ],
+      "theta": [
+        4,
+        8
+      ],
+      "alpha": [
+        8,
+        12
+      ],
+      "beta": [
+        12,
+        20
+      ],
+      "high_beta": [
+        20,
+        30
+      ],
+      "gamma": [
+        30,
+        45
+      ]
+    },
+    "channel_order": [
+      "FP1",
+      "FP2",
+      "F7",
+      "F3",
+      "FZ",
+      "F4",
+      "F8",
+      "T3",
+      "C3",
+      "CZ",
+      "C4",
+      "T4",
+      "T5",
+      "P3",
+      "PZ",
+      "P4",
+      "T6",
+      "O1",
+      "O2"
+    ]
+  },
+  "matched_input_rule": {
+    "rationale": "The public dataset contains a longer rest recording than arithmetic recording. Duration is matched before feature extraction so the primary comparison cannot be driven by unequal record length.",
+    "duration_seconds": 60,
+    "rest_window": "first 60.0 seconds of the rest EDF after parser output",
+    "arithmetic_window": "first 60.0 seconds of the arithmetic EDF after parser output",
+    "sample_count_rule": "Require exactly 30000 samples per selected EEG channel at 500 Hz after slicing. Reject the subject pair as NOT_ANALYZABLE if either condition cannot supply this window.",
+    "finite_rule": "Do not impute or tune. The frozen EDF parser output is passed unchanged except for deterministic 60-second slicing."
+  },
+  "primary_endpoint": {
+    "metric": "ResearchFriction19Engine.normalizedRatio (W)",
+    "subject_contrast": "delta_W = W_arithmetic - W_rest",
+    "directional_hypothesis": "median paired delta_W > 0",
+    "test": "paired Wilcoxon signed-rank, one-sided arithmetic > rest, zero_method='wilcox', correction=false, asymptotic normal approximation",
+    "alpha": 0.05,
+    "success_rule": "Primary supported only if p_one_sided <= 0.05 and the sample median of delta_W is > 0.",
+    "effect_reporting": [
+      "W_rest and W_arithmetic for every subject",
+      "paired delta_W for every subject",
+      "median W_rest",
+      "median W_arithmetic",
+      "median delta_W",
+      "Wilcoxon statistic and p-value"
+    ]
+  },
+  "secondary_predeclared_endpoints": [
+    "paired change in loadY",
+    "paired change in capacityZ",
+    "paired change in dispersionD",
+    "paired change in alphaCoherencePercent",
+    "paired change in each of the 19 localRatios",
+    "descriptive primary contrast stratified by published count-quality group; no subgroup result may replace the primary all-subject test"
+  ],
+  "parity_gate": {
+    "requirement": "For every analyzable subject and condition, Kotlin ResearchFriction19Engine output must match an independently implemented Python oracle on the exact matched 60-second window before group inference.",
+    "fields": [
+      "capacityZ",
+      "loadY",
+      "dispersionD",
+      "rawRatio",
+      "normalizedRatio",
+      "alphaCoherencePercent",
+      "19 localRatios"
+    ],
+    "floating_tolerance": "max(1e-9,1e-8*max(1,abs(expected)))"
+  },
+  "guardrails": [
+    "No EEGMAT MMSI W/Y/Z/coherence/local-ratio outcome may be inspected before this preregistration commit exists.",
+    "No subject, condition, channel, band, window, normalization constant, endpoint direction, statistical test, alpha or parity tolerance may change after outcomes are observed.",
+    "The published count-quality label is secondary only and may not be used to filter the primary cohort.",
+    "Failure of the primary directional test is retained unchanged and counts against generalization of the MMSI friction interpretation to this cognitive-load manipulation.",
+    "Success would support one narrow EEG-load prediction only. It would not establish OMEGA_KRIT, mechanical pressure coupling, diagnosis, metaphysical claims, universality, or a physical Weltformel."
+  ]
+}
