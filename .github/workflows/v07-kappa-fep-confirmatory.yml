@@ -24,6 +24,7 @@ jobs:
           test "$(git hash-object docs/validation/V07_KAPPA_FEP_CONFIRMATORY_PREREG.json)" = "7ccd126b57109d3986df777fb74c74e9f3a9a9ce"
           test "$(git hash-object docs/validation/V07_KAPPA_FEP_CONFIRMATORY_PREREG_ERRATUM_1.json)" = "8f2d7da904432df4e62a4443a1d5c8a6f448e1af"
           test "$(git hash-object docs/validation/V07_KAPPA_FEP_CONFIRMATORY_PREREG_ERRATUM_2.json)" = "0d5484e03672fe17d4f7967005270c78b82ffb4a"
+          test "$(git hash-object docs/validation/V07_KAPPA_FEP_CONFIRMATORY_PREREG_ERRATUM_3.json)" = "7a12a6e455f923262839f31501588a046caff404"
 
       - name: Checkout frozen NEMAR metadata
         shell: bash
@@ -70,9 +71,10 @@ jobs:
       PREREG_BLOB_SHA1: 7ccd126b57109d3986df777fb74c74e9f3a9a9ce
       ERRATUM_BLOB_SHA1: 8f2d7da904432df4e62a4443a1d5c8a6f448e1af
       ERRATUM_2_BLOB_SHA1: 0d5484e03672fe17d4f7967005270c78b82ffb4a
+      ERRATUM_3_BLOB_SHA1: 7a12a6e455f923262839f31501588a046caff404
       CHANNELS_TSV_BLOB_SHA1: 2d82b42319011eb1358e1413eab348307271e6f5
       DOWNLOAD_BLOB_SHA1: 38be2738cb36adcea4a10fc43ad5d2cc69897c44
-      SUBJECT_SCRIPT_BLOB_SHA1: 19b49972aa4046e03a0b9edf5964b3262a882174
+      SUBJECT_SCRIPT_BLOB_SHA1: 5542679e88bfc8230fb09423c8b560d1c623a00a
       GROUP_SCRIPT_BLOB_SHA1: d0511884511eb8ae3fbf3a30859a17f266c1a732
       PARITY_TEST_BLOB_SHA1: 8b9a2bddd5ba5e146e3e3b775d18c45e4d08d376
       NEMAR_COMMIT: 0831487239218bc9daef1cc43d91d07b0c7d153d
@@ -93,6 +95,7 @@ jobs:
           test "$(git hash-object docs/validation/V07_KAPPA_FEP_CONFIRMATORY_PREREG.json)" = "$PREREG_BLOB_SHA1"
           test "$(git hash-object docs/validation/V07_KAPPA_FEP_CONFIRMATORY_PREREG_ERRATUM_1.json)" = "$ERRATUM_BLOB_SHA1"
           test "$(git hash-object docs/validation/V07_KAPPA_FEP_CONFIRMATORY_PREREG_ERRATUM_2.json)" = "$ERRATUM_2_BLOB_SHA1"
+          test "$(git hash-object docs/validation/V07_KAPPA_FEP_CONFIRMATORY_PREREG_ERRATUM_3.json)" = "$ERRATUM_3_BLOB_SHA1"
           test "$(git hash-object tools/validation/v07_ds003944_download.py)" = "$DOWNLOAD_BLOB_SHA1"
           test "$(git hash-object tools/validation/v07_ds003944_kappa.py)" = "$SUBJECT_SCRIPT_BLOB_SHA1"
           test "$(git hash-object tools/validation/v07_ds003944_group.py)" = "$GROUP_SCRIPT_BLOB_SHA1"

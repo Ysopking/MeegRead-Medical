@@ -20,7 +20,7 @@ from typing import Dict, List, Sequence
 import mne
 import v07_reference as core
 
-ADAPTER_VERSION = "python-v07-ds003944-kappa-confirmatory-1.0.2"
+ADAPTER_VERSION = "python-v07-ds003944-kappa-confirmatory-1.0.3"
 CHANNELS_TSV_BLOB_SHA1 = "2d82b42319011eb1358e1413eab348307271e6f5"
 EXPECTED_SAMPLE_RATE_HZ = 1000.0
 WINDOW_SAMPLES = 2048
@@ -110,7 +110,9 @@ def load_fixed_channels(vhdr_path: str, channels_tsv_path: str) -> tuple[Dict[st
     raw = mne.io.read_raw_brainvision(decode_header, preload=False, verbose="ERROR")
     sfreq = float(raw.info["sfreq"])
     channels_tsv = Path(channels_tsv_path)
-    if hashlib.sha1(channels_tsv.read_bytes()).hexdigest() != CHANNELS_TSV_BLOB_SHA1:
+    channels_payload = channels_tsv.read_bytes()
+    git_blob_payload = b"blob " + str(len(channels_payload)).encode("ascii") + b"\0" + channels_payload
+    if hashlib.sha1(git_blob_payload).hexdigest() != CHANNELS_TSV_BLOB_SHA1:
         raise ValueError(f"Unexpected frozen channels.tsv identity: {channels_tsv}")
     with channels_tsv.open("r", encoding="utf-8", newline="") as f:
         bids_names = [row["name"] for row in csv.DictReader(f, delimiter="\\t")]
