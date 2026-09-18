@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import hashlib
 import json
 import math
 import os
@@ -109,7 +110,7 @@ def load_fixed_channels(vhdr_path: str, channels_tsv_path: str) -> tuple[Dict[st
     raw = mne.io.read_raw_brainvision(decode_header, preload=False, verbose="ERROR")
     sfreq = float(raw.info["sfreq"])
     channels_tsv = Path(channels_tsv_path)
-    if core.sha1_file(str(channels_tsv)) != CHANNELS_TSV_BLOB_SHA1:
+    if hashlib.sha1(channels_tsv.read_bytes()).hexdigest() != CHANNELS_TSV_BLOB_SHA1:
         raise ValueError(f"Unexpected frozen channels.tsv identity: {channels_tsv}")
     with channels_tsv.open("r", encoding="utf-8", newline="") as f:
         bids_names = [row["name"] for row in csv.DictReader(f, delimiter="\\t")]
