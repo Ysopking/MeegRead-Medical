@@ -23,6 +23,7 @@ jobs:
           set -euo pipefail
           test "$(git hash-object docs/validation/V07_KAPPA_FEP_CONFIRMATORY_PREREG.json)" = "7ccd126b57109d3986df777fb74c74e9f3a9a9ce"
           test "$(git hash-object docs/validation/V07_KAPPA_FEP_CONFIRMATORY_PREREG_ERRATUM_1.json)" = "8f2d7da904432df4e62a4443a1d5c8a6f448e1af"
+          test "$(git hash-object docs/validation/V07_KAPPA_FEP_CONFIRMATORY_PREREG_ERRATUM_2.json)" = "0d5484e03672fe17d4f7967005270c78b82ffb4a"
 
       - name: Checkout frozen NEMAR metadata
         shell: bash
@@ -68,8 +69,10 @@ jobs:
       PYTHON_ORACLE_BLOB_SHA1: 2cd26cf925a8d85970fb9dabaeb3a3c8d4409679
       PREREG_BLOB_SHA1: 7ccd126b57109d3986df777fb74c74e9f3a9a9ce
       ERRATUM_BLOB_SHA1: 8f2d7da904432df4e62a4443a1d5c8a6f448e1af
+      ERRATUM_2_BLOB_SHA1: 0d5484e03672fe17d4f7967005270c78b82ffb4a
+      CHANNELS_TSV_BLOB_SHA1: 2d82b42319011eb1358e1413eab348307271e6f5
       DOWNLOAD_BLOB_SHA1: 38be2738cb36adcea4a10fc43ad5d2cc69897c44
-      SUBJECT_SCRIPT_BLOB_SHA1: c90223ef21c376ab28c29246c43f142ff5b9c804
+      SUBJECT_SCRIPT_BLOB_SHA1: 19b49972aa4046e03a0b9edf5964b3262a882174
       GROUP_SCRIPT_BLOB_SHA1: d0511884511eb8ae3fbf3a30859a17f266c1a732
       PARITY_TEST_BLOB_SHA1: 8b9a2bddd5ba5e146e3e3b775d18c45e4d08d376
       NEMAR_COMMIT: 0831487239218bc9daef1cc43d91d07b0c7d153d
@@ -89,6 +92,7 @@ jobs:
           set -euo pipefail
           test "$(git hash-object docs/validation/V07_KAPPA_FEP_CONFIRMATORY_PREREG.json)" = "$PREREG_BLOB_SHA1"
           test "$(git hash-object docs/validation/V07_KAPPA_FEP_CONFIRMATORY_PREREG_ERRATUM_1.json)" = "$ERRATUM_BLOB_SHA1"
+          test "$(git hash-object docs/validation/V07_KAPPA_FEP_CONFIRMATORY_PREREG_ERRATUM_2.json)" = "$ERRATUM_2_BLOB_SHA1"
           test "$(git hash-object tools/validation/v07_ds003944_download.py)" = "$DOWNLOAD_BLOB_SHA1"
           test "$(git hash-object tools/validation/v07_ds003944_kappa.py)" = "$SUBJECT_SCRIPT_BLOB_SHA1"
           test "$(git hash-object tools/validation/v07_ds003944_group.py)" = "$GROUP_SCRIPT_BLOB_SHA1"
@@ -105,6 +109,7 @@ jobs:
           git clone --quiet --filter=blob:none --no-checkout https://github.com/nemarDatasets/on003944.git "$META"
           git -C "$META" checkout --quiet --detach "$NEMAR_COMMIT"
           test "$(git -C "$META" hash-object participants.tsv)" = "$PARTICIPANTS_BLOB_SHA1"
+          test "$(git -C "$META" hash-object "$V07_DS003944_SUBJECT/eeg/${V07_DS003944_SUBJECT}_task-Rest_channels.tsv")" = "$CHANNELS_TSV_BLOB_SHA1"
           echo "NEMAR_META=$META" >> "$GITHUB_ENV"
 
       - name: Set up Python
@@ -138,6 +143,7 @@ jobs:
           )"
           PYTHONPATH=tools/validation python tools/validation/v07_ds003944_kappa.py \
             --vhdr "$V07_DS003944_ROOT/source/${V07_DS003944_SUBJECT}_task-Rest_eeg.vhdr" \
+            --channels-tsv "$NEMAR_META/${V07_DS003944_SUBJECT}/eeg/${V07_DS003944_SUBJECT}_task-Rest_channels.tsv" \
             --subject "$V07_DS003944_SUBJECT" \
             --group "$GROUP" \
             --source-metadata "$V07_DS003944_ROOT/source/source_metadata.json" \
