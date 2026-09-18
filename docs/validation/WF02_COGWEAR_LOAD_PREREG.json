@@ -1,0 +1,122 @@
+{
+  "schema": "meegread.wf02.cogwear-load-confirmatory.v1",
+  "validation_id": "wf02-cogwear-pilot-stroop-vs-baseline-load-confirmatory",
+  "status": "FROZEN_BEFORE_ANY_COGWEAR_THERMODYNAMIC_LOAD_OUTCOME",
+  "purpose": "Second falsification-oriented Weltformel/MMSI validation stage. This experiment tests whether the already-frozen four-channel thermodynamic research-load model produces a higher sustained stored-load state during a cognitively demanding Stroop task than during matched relaxed baseline in independent public Muse S EEG. It is not a test of physical universality.",
+  "hypothesis_origin": {
+    "model_file": "app/src/main/java/de/meegread/app/analysis/ExperimentalLoadEngine.kt",
+    "model_version": "mmsi-load-research-v1.2",
+    "model_interpretation": "The frozen model treats wRaw as a leaky, flow-gated stored research-load state driven by EEG-derived frictionRate. A sustained cognitively demanding task is preregistered to yield higher sustained wRaw than relaxed baseline.",
+    "explicit_nonclaims": [
+      "WF02 does not validate OMEGA_KRIT=5800 as a biological threshold.",
+      "WF02 does not validate pressureProxy as measured mechanical vascular pressure.",
+      "WF02 does not establish diagnosis, disease specificity, causality, entropic gravity, metaphysical claims, universality, or a physical law."
+    ]
+  },
+  "source": {
+    "provider": "PhysioNet",
+    "dataset": "CogWear: Can we detect cognitive effort with consumer-grade wearables?",
+    "version": "1.0.0",
+    "doi": "10.13026/5f6t-b637",
+    "license": "Open Data Commons Open Database License v1.0",
+    "cohort_rule": "Use every pilot participant id 0 through 10 with both baseline/muse_eeg.csv and cognitive_load/muse_eeg.csv in the frozen PhysioNet v1.0.0 release. No participant may be removed based on MMSI outcomes.",
+    "expected_participants": 11,
+    "conditions": {
+      "baseline": "Three-minute relaxed baseline with no task.",
+      "cognitive_load": "Cognitively demanding Stroop test."
+    },
+    "device": "Muse S (Gen2)",
+    "documented_sample_rate_hz": 256,
+    "eeg_channels": [
+      "TP9",
+      "AF7",
+      "AF8",
+      "TP10"
+    ],
+    "path_templates": {
+      "baseline": "pilot/{participant}/baseline/muse_eeg.csv",
+      "cognitive_load": "pilot/{participant}/cognitive_load/muse_eeg.csv"
+    },
+    "data_identity_rule": "At runtime, read the exact path's SHA-256 from PhysioNet v1.0.0 SHA256SUMS.txt and reject the downloaded file before analysis unless the local SHA-256 matches."
+  },
+  "frozen_implementation": {
+    "base_commit": "e0ae3b05bef9573dbf02c9c52290990b1f9cdc3a",
+    "algorithm_version": "mmsi-load-research-v1.2",
+    "experimental_load_engine_blob_sha1": "1a600d44f2fccbe304efd8597d8b4791f7a2b518",
+    "load_math_blob_sha1": "4496ad4f5b7bab4a01d61942296416451fea18a3",
+    "signal_engine_blob_sha1": "e6f25721ad18be07666bf38de4921de6ee914a21",
+    "fft_blob_sha1": "e2f8969bbd4b588ac409061970d1e9f20e00c984",
+    "omega_model_parameter": 5800,
+    "recovery_tau_seconds": 300,
+    "window_seconds": 4,
+    "hop_seconds": 1,
+    "electrodes": [
+      "AF7",
+      "AF8",
+      "TP9",
+      "TP10"
+    ],
+    "equations": {
+      "gradE": "(highBeta_TP_mean + theta_TP_mean) / (alpha_AF_mean + 1e-12)",
+      "faa": "ln(alpha_AF8 + 1e-12) - ln(alpha_AF7 + 1e-12)",
+      "hSigma": "1 / (1 + exp(-2*faa))",
+      "eFlow": "(midBeta_AF_mean * alpha_AF_mean) / (highBeta_TP_mean + 1e-12) * hSigma",
+      "pressureProxy": "gradE * (1 - hSigma)",
+      "frictionRate": "abs(gradE - pressureProxy)",
+      "flowGate": "eFlow / (1 + eFlow), with non-finite/negative safety coercions frozen in engine",
+      "loadEvolution": "dW/dt = frictionRate - frictionRate*flowGate - (W/recoveryTau)*flowGate; Euler update; W clipped at >=0",
+      "boundedLoad": "5800 * tanh(max(W,0)/5800)"
+    }
+  },
+  "input_mapping": {
+    "format": "CogWear muse_eeg.csv",
+    "raw_columns_zero_based": {
+      "TP9": 21,
+      "AF7": 22,
+      "AF8": 23,
+      "TP10": 24
+    },
+    "record_policy": "Use every non-empty CSV record after the header in source order. A non-empty record with fewer than 25 columns is a hard failure.",
+    "non_numeric_policy": "Represent empty or non-numeric raw EEG cells as NaN exactly as in the existing CogWear adapter. The frozen load engine's >=99.5% finite-input rule remains unchanged.",
+    "matched_duration_seconds": 180,
+    "matched_sample_count": 46080,
+    "condition_window_rule": "For each condition use exactly the first 46080 source-order EEG rows (180.0 s at 256 Hz). If either condition cannot supply 46080 rows, the participant is NOT_ANALYZABLE and remains reported; no replacement window is permitted."
+  },
+  "primary_endpoint": {
+    "name": "sustained_last_minute_raw_load",
+    "condition_score": "Median wRaw across ThermodynamicLoadPoint values with timeSeconds >= 120.0 after running the unchanged engine on the matched first 180.0 seconds.",
+    "subject_contrast": "delta_sustained_W = score_cognitive_load - score_baseline",
+    "directional_hypothesis": "CogWear Stroop cognitive_load subject scores are higher than matched baseline subject scores.",
+    "group_test": "Paired Wilcoxon signed-rank, one-sided alternative cognitive_load > baseline, zero_method='wilcox', correction=false, asymptotic normal approximation.",
+    "alpha": 0.05,
+    "success_rule": "Primary supported only if p_one_sided <= 0.05 and median(delta_sustained_W) > 0."
+  },
+  "secondary_predeclared_endpoints": [
+    "paired finalRawLoad",
+    "paired maxRawLoad",
+    "paired finalBoundedLoad",
+    "paired median pressureProxy across timeSeconds >= 120.0",
+    "paired median frictionRate across timeSeconds >= 120.0",
+    "paired median eFlow across timeSeconds >= 120.0",
+    "paired meanFaa",
+    "paired final omegaRatio",
+    "descriptive count of omegaBreach in each condition; this is not a confirmatory test of OMEGA_KRIT"
+  ],
+  "parity_gate": {
+    "requirement": "For every analyzable participant and both conditions, Kotlin ThermodynamicLoadEngine output must match an independently implemented Python oracle on the exact matched 180-second source window before group inference.",
+    "comparison": "Compare every emitted ThermodynamicLoadPoint field in order and all ThermodynamicLoadAnalysis summary fields.",
+    "floating_tolerance": "max(1e-9,1e-8*max(1,abs(expected)))"
+  },
+  "missingness_and_failures": {
+    "analyzability_rule": "A pair is analyzable only if both verified source files satisfy the frozen input mapping and the unchanged Kotlin/Python engines produce finite parity-matched outputs.",
+    "inference_rule": "Primary inference uses all analyzable preregistered participant pairs. Any NOT_ANALYZABLE participant and exact reason are retained in the group artifact.",
+    "no_imputation": "No outcome-driven row deletion, interpolation, channel substitution, alternate time window, participant replacement, parameter tuning, or threshold tuning is permitted."
+  },
+  "guardrails": [
+    "No WF02 thermodynamic-load result may be inspected before this preregistration commit exists.",
+    "No participant, condition, channel, source column, duration, window, hop, recovery tau, endpoint definition, direction, statistical test, alpha, or parity tolerance may change after outcomes are observed.",
+    "A negative primary result is retained unchanged and counts against generalization of the frozen thermodynamic research-load interpretation.",
+    "A positive primary result supports one narrow paired cognitive-load prediction only.",
+    "OMEGA_KRIT=5800 and pressureProxy remain research model parameters/proxies and are not validated by WF02 even if descriptive values differ."
+  ]
+}
