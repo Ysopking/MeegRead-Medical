@@ -1,0 +1,16 @@
+{
+  "document": "V07_KAPPA_FEP_CONFIRMATORY_PREREG_ERRATUM_4",
+  "scope": "TSV decoder implementation typo only",
+  "discovered_after": "Run 35335240536 failed before any kappa/operator result was computed",
+  "observed_failure": "The frozen channels.tsv identity passed, but csv.DictReader received delimiter='\\\\t' (two characters: backslash+t) instead of a single tab character and raised TypeError before parsing any channel metadata.",
+  "correction": {
+    "rule": "Use the standard single tab delimiter '\\t' when parsing the already frozen BIDS channels.tsv.",
+    "frozen_channels_tsv_blob_sha1": "2d82b42319011eb1358e1413eab348307271e6f5",
+    "frozen_nemar_commit": "0831487239218bc9daef1cc43d91d07b0c7d153d"
+  },
+  "invariants": [
+    "No source EEG bytes, BIDS metadata bytes, channel order or channel mapping are changed.",
+    "No preregistered sensor, window, hierarchy, endpoint, hypothesis, cohort, exclusion, statistical test or alpha is changed.",
+    "No ds003944 kappa, PLV, Q, chi, stability, parity or group-level result was available when this correction was frozen."
+  ]
+}

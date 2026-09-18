@@ -1,0 +1,17 @@
+{
+  "document": "V07_KAPPA_FEP_CONFIRMATORY_PREREG_ERRATUM_3",
+  "scope": "identity-verification implementation only",
+  "discovered_after": "Run 35329555879 failed before any kappa/operator result was computed",
+  "observed_failure": "The workflow correctly verified the frozen channels.tsv with git hash-object, but the Python adapter compared a raw-byte SHA-1 digest against a Git blob object ID. These are different hash domains because Git hashes 'blob <length>\\0' plus the file bytes.",
+  "correction": {
+    "rule": "Compute the Git blob object ID from the unchanged channels.tsv bytes inside the adapter and compare that object ID with the already frozen channels.tsv blob SHA-1.",
+    "frozen_channels_tsv_blob_sha1": "2d82b42319011eb1358e1413eab348307271e6f5",
+    "frozen_nemar_commit": "0831487239218bc9daef1cc43d91d07b0c7d153d"
+  },
+  "invariants": [
+    "No source EEG bytes are changed.",
+    "No channel order or channel mapping is changed.",
+    "No preregistered sensor, window, hierarchy, endpoint, hypothesis, cohort, exclusion, statistical test or alpha is changed.",
+    "No ds003944 kappa, PLV, Q, chi, stability, parity or group-level result was available when this correction was frozen."
+  ]
+}
